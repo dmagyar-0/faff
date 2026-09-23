@@ -151,7 +151,7 @@ This is the most important architectural choice in this doc.
 - **The fix:** pick a vendor that supports a **custom-LLM endpoint** (both named vendors do). The platform does speech-to-text, text-to-speech, turn-taking, barge-in, DTMF and the phone line. For each turn it sends the transcript to `worker:/llm/:callId` and speaks whatever that endpoint streams back. That endpoint runs **the same `agents/phone` loop** the simulator runs.
 - **Result:** simulated and real calls differ only in the transport. The graders test the code that talks to real people.
 - **Also covers I-1:** the fixed opener is produced by our loop on the first "human detected" turn, not by a vendor "first message" setting that would fire when an IVR answers.
-- **Vendor choice (D9) becomes one concrete question:** which vendor's custom-LLM mode gives us (a) human-vs-IVR/voicemail detection events, (b) DTMF sending from our loop, (c) a hard max duration, (d) recording on/off per call, (e) a UK number with verified CLI. Run a spike on both vendors in milestone M9 and choose then.
+- **Vendor choice (D9) becomes one concrete question:** which vendor's custom-LLM mode gives us (a) human-vs-IVR/voicemail detection events, (b) DTMF sending from our loop, (c) a hard max duration, (d) recording on/off per call, (e) a UK number with verified CLI. Those are hard requirements. Among the vendors that meet them, the choice is made by the vendor bake-off in §4.1, not decided up front.
 
 ```ts
 // packages/telephony
@@ -222,14 +222,32 @@ The approach is a **walking skeleton first, then widen**. The first goal is one 
 | **M5** | Eval harness and gate | `evals/` runner, scenario format, all 9 graders, `eval_runs` table keyed by commit, CI job, the gate check in the worker | Deterministic suite runs on every PR; `FAFF_REAL_CALLS` can't take effect without a stored passing run |
 | **M6** | Breadth: verbs and robustness | Reschedule (paired), cancel gate and paired cancel, escalation round-trip, redial policy, IVR trees, hold, identity-mismatch path, the full scenario table from spec 11 | Suite covers every family in spec 11. Invariant graders at 100%, outcome accuracy tracked |
 | **M7** | Contacts and knowledge | Web lookup (search → extract → `verifyCitation`), observations written back, `deriveBusinessProfile` cache, channel resolver on the card | A web-found number without a verbatim citation is never dialled (test) |
-| **M8** | Email and inbound | Outbound email agent and renderer, chasers, inbound email parse and auto-act, simulated voicemail → inbox, human-review queue, email fallback to phone | Email scenarios in the suite pass; signature test passes |
-| **M9** | Proof and notifications | Calendar consent and events (`.ics` fallback), confirmation email, notification emails | A booking produces all three proofs; each retries on its own |
+| **M8** | Email and inbound | Outbound email agent and renderer, chasers, inbound email parse and auto-act, simulated voicemail → inbox, human-review queue, email fallback to phone, all against a **simulated email provider** (no domain yet, §7) | Email scenarios in the suite pass; signature test passes |
+| **M9** | Proof and notifications | Calendar consent and events (`.ics` fallback; Google testing mode), confirmation email (simulated until M11), in-app inbox notifications | A booking produces all three proofs; each retries on its own |
 | **M10** | Retention and ops | Audio purge, account deletion cascade, operator audit log, third-party SAR export, structured logging and tracing, alerting on stuck tasks | Purge and deletion tests pass; runbook written |
-| **M11** | Real-call readiness | Vendor spike (P2 criteria), hosted adapter, UK number + CLI verification, inbound voicemail on the real number, live-callee nightly suite, go-live checklist | Everything on spec 11's checklist is ticked. The gate passes on the deployed commit. First manual friendly call made and reviewed |
+| **M11** | Real-call readiness | Vendor bake-off (§4.1), hosted adapter for the chosen vendor, UK number + CLI verification, inbound voicemail on the real number, live-callee nightly suite, owner test calls (§4.1), go-live checklist | Everything on spec 11's checklist is ticked. The gate passes on the deployed commit. The owner signs off on how the calls feel. First manual friendly call made and reviewed |
 
-**M1 to M5 is the critical path.** M6, M7 and M8 can run in parallel once M5 lands, because each adds scenarios to the same harness. M9 has no dependency on M6 to M8 beyond M4. Google verification (§2.8) and email domain setup (SPF, DKIM, DMARC) take calendar time, so start them early, around M3.
+**M1 to M5 is the critical path.** M6, M7 and M8 can run in parallel once M5 lands, because each adds scenarios to the same harness. M9 has no dependency on M6 to M8 beyond M4. Google verification (§2.8) and email domain setup (SPF, DKIM, DMARC) take calendar time. Both wait for a domain (§7), so they happen at the start of M11, and M11 should allow a few weeks for them.
 
 Each milestone is one or more PRs (Q9). Each PR carries the eval result for its commit from M5 onwards.
+
+**Planning each milestone.** Each milestone gets its own plan before any code is written, in `docs/design/milestones/Mn-<name>.md`, and is discussed in a separate session. A milestone plan covers: scope in and out, the PRs it splits into, the tables/modules/tests it adds, which invariants and graders it touches, its exit criteria in checkable form, and the questions it needs answered. Start with M0 and M1.
+
+### 4.1 Choosing the voice vendor and judging how calls feel
+
+Nobody has picked a voice vendor, and there's no reason to guess. The P2 design makes the vendor a transport behind `AgentTransport`, so vendors can be compared on the same agent code.
+
+**Vendor bake-off (M11, before building the full adapter):**
+
+1. **Filter** on the hard requirements in §2.6 (custom-LLM mode, human/IVR/voicemail detection, DTMF, max duration, per-call recording switch, UK number with verified CLI). Check the documentation, then confirm with a short throwaway prototype.
+2. **Build a thin adapter** for each vendor that passes (expected: two or three). Each adapter only needs to be good enough to hold a call.
+3. **Run the same scripted calls** through each vendor. The callee is the owner or the simulator's persona read aloud over a real phone line. No real business is called.
+4. **Measure**: the time from the callee finishing speaking to the agent starting to speak (p50 and p95), talking over each other and interruptions, how accurately the speech-to-text transcribes dates, names and reference numbers, voice quality, cost per minute, and how easy the vendor is to integrate.
+5. **Decide** with a short decision record (superseding D9) and build the production adapter only for the winner.
+
+**Owner test calls (M11, before go-live):** the owner plays the receptionist on real calls placed through the chosen vendor. Some calls follow a script (the spec 11 scenario families: happy path, out-of-rule offers, hostile, identity mismatch, misheard dates). Some are unscripted. After each call the owner scores it on a short form: did it sound natural, was the AI disclosure clear, would a receptionist hang up, how long were the pauses, and any moments that felt wrong. Every call's transcript and scores are stored alongside the eval runs. They aren't pass/fail graders. They are the judgement the automated suite can't make ("does this feel like a call a receptionist would put up with?"). They also answer Q-C (the trade between speed and model capability) with real numbers. Go-live needs the owner's sign-off on these calls **in addition to** the automated gate (Q34).
+
+This is also a safe way to test real telephony early: every call goes to the owner's own phone, so no third party is involved.
 
 ---
 
@@ -244,7 +262,7 @@ Found while mapping the spec to code. Each needs a decision. The **proposed defa
 | **G3** | Do the limit counters (`attempts_used`, `call_seconds_used`) reset when an escalation revision is approved? `raise_limits` suggests they don't | 02, 06 | Counters **persist across revisions** of a task. Limits on the new revision are totals. `raise_limits` exists to widen them |
 | **G4** | The state table sends `voicemail.received` to `escalated`, but 07 says an in-rule callback voicemail is auto-acted (redial to confirm) | 03 vs 07 | Add `waiting --voicemail.received(in_rule)--> queued` (redial to confirm, counts to limits), mirroring the email auto-act row |
 | **G5** | Only `timer.lifetime_expired` has a timeout (48h → `failed`). An `escalated` task the user never answers stays open for ever | 03 | Every `escalated` state gets an `escalation_expires_at` (default 7 days → `failed`, reason `user_unresponsive`) and a reminder notification at 48h |
-| **G6** | "`simulated` is the default in production." Then what does a production user get before the gate passes, a fake booking? | 01, 11 | Before the gate, production is **invite-only dogfood**, and every report carries a banner: "Simulated call — nothing was booked". Real users are only invited after the gate passes (see Q-A below) |
+| **G6** | "`simulated` is the default in production." Then what does a production user get before the gate passes, a fake booking? | 01, 11 | **Decided (owner, 2026-09-23):** before the gate, only the owner uses Faff. Every simulated report still carries a banner: "Simulated call — nothing was booked". No sign-up for anyone else yet |
 | **G7** | "Deterministic mode … recorded callee responses." Recorded callee responses stop matching as soon as the agent's wording changes, and replaying the *agent* would test nothing | 11 | "Deterministic" means **a scripted, rule-based callee** (a state machine per persona, no LLM) with a fixed seed. The agent is always the live model. The LLM callee is for the nightly and pre-flip runs |
 | **G8** | Missing tables and columns: `eval_runs`, `user_settings` (`record_calls`, `nhs_number_opt_in_at`), `google_connections`, `offers` (from `record_offer`), `operator_access_log`, `inbound_review_queue`, `tasks.next_wake_at` / `lease_until` / `escalation_expires_at`, `calls.token_jti` | 04 | Add them in M2 migrations. The schema changes don't alter any invariant |
 | **G9** | Identity matching is "fuzzy" but has to be deterministic, and runs on speech-recognised text ("Smile Dental" heard as "smile dent all") | 08 | `confirm_business_identity` uses deterministic token-set similarity plus a per-business alias list (from observations and the user's own naming), with the threshold set from sim noise scenarios. One clarification is allowed, then end the call (spec already) |
@@ -263,16 +281,26 @@ Found while mapping the spec to code. Each needs a decision. The **proposed defa
 | P3 | RFC 8785 JCS + SHA-256 for `revisionHash`; the hash is computed server-side when the revision is written | §2.1 |
 | P4 | DB-authoritative task state with `next_wake_at`; pgmq only wakes tasks up; a per-minute sweep; idempotent handlers | §2.3 |
 | P5 | `end_call` rejects outcomes whose `disclosedFields` don't match the reveal log | §2.4 |
-| P6 | Email provider: Postmark, unless the spike shows a reason to use something else | §2.9 |
+| P6 | Email provider: Postmark, unless the spike shows a reason to use something else. Deferred until a domain exists (see §7) | §2.9 |
 | P7 | Worker host: Fly.io, London region (`lhr`), because it supports long-lived WebSockets and runs close to Supabase London. D8 left this open | §1 |
 | P8 | Application-level envelope encryption for profile values and OAuth tokens | §2.7 |
 
 ---
 
-## 7. Open questions for the product owner
+## 7. Questions for the product owner
 
-- **Q-A (pre-gate users).** Who uses v1 before real calls are switched on? Only us (dogfood), or a waitlist of users who see simulated results? This decides how much of M9 and M10 polish is needed before M11.
-- **Q-B (first vendor).** Is there a preference between Vapi and Retell (or another vendor), or do we decide on the P2 spike criteria alone?
-- **Q-C (latency against model).** If the phone agent can't meet the latency target at the default model with low effort, do we trade model capability for speed, or accept a slower turn? We'll have numbers from M5.
-- **Q-D (domain).** The product domain for `bookings@` and `reply.` subdomains is needed by M8, and DNS warm-up takes time.
-- **Q-E (G2).** Does the new-number approval tap feel like friction you'd rather accept the risk on?
+### Answered (2026-09-23)
+
+- **Q-A (who uses v1 before real calls).** Only the owner. So M9 and M10 need to work, not be polished, before M11: there's no public sign-up, marketing site or waitlist in v1.
+- **Q-B (voice vendor).** No preference. It's decided by the vendor bake-off in §4.1.
+- **Q-C (speed against model capability).** Decided with evidence: the simulator gives latency numbers from M5 onwards, and the owner test calls in §4.1 judge how the calls feel. The owner will be the receptionist on real test calls before go-live.
+- **Q-D (domain).** No domain yet. The owner wants to see how the product feels before committing to a name. Consequences:
+  - Until a domain exists, all business-facing email is **simulated**: the email agent, renderer and inbound parser run against an in-process fake email provider (the same approach as `CallProvider`), and the email scenarios in the eval suite use it. Nothing is sent to real addresses.
+  - Notification emails to the owner can use Supabase Auth's built-in sender, or be skipped: the in-app inbox is the source of truth (Q32).
+  - The domain, email provider choice (P6), SPF/DKIM/DMARC and deliverability warm-up move to M11. Allow a few weeks there for warm-up.
+  - Google OAuth verification also needs a domain (for the privacy policy and consent screen). Until then the app runs in Google's **testing mode**, which allows up to 100 named test users. That is enough for owner-only use.
+
+### Still open
+
+- **Q-E (G2).** Does an extra tap to approve a new number after a wrong-number call feel like too much friction?
+- The other gaps in §5 (G1, G3–G5, G7–G12) use the proposed default unless the owner objects. They can be confirmed as each milestone plan is discussed.
