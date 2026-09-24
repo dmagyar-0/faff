@@ -258,7 +258,7 @@ Found while mapping the spec to code. Each needs a decision. The **proposed defa
 | # | Issue | Where | Proposed default |
 |---|---|---|---|
 | **G1** | `draft` is listed as a *task* state, but a task is described as "one approved Brief being carried out". When is the `tasks` row created? | 03 | A draft is a property of the **Brief**, not of a task. The `tasks` row is created by `approve_brief()`, and the state machine starts at `queued` or `awaiting_cancel_confirmation` |
-| **G2** | After a **wrong number**, resolution re-runs and the task goes back to `waiting` → `queued` and dials the *new* number. But the number is part of the approved Brief (`business.contact`). Dialling a number the user never saw arguably breaks I-3 | 03, 08 | A new contact produces a **new revision** and an escalation (`wrong_business_unresolved` with a suggested action "approve new number"). It costs one tap, and I-3 stays literally true |
+| **G2** | After a **wrong number**, resolution re-runs and the task goes back to `waiting` → `queued` and dials the *new* number. But the number is part of the approved Brief (`business.contact`). Dialling a number the user never saw arguably breaks I-3 | 03, 08 | **Decided (owner, 2026-09-24): [Q39](../decisions/Q39-after-a-wrong-number-switch-automatically-only-when-code-can-vouch-for-the-new-number.md).** Faff switches automatically when a deterministic check vouches for the new number: it came from your saved details or the business's own site or NHS listing, it's for the same business, it's the first switch on the task, and limits remain. The Brief pre-authorises this. Otherwise Faff asks you with one tap |
 | **G3** | Do the limit counters (`attempts_used`, `call_seconds_used`) reset when an escalation revision is approved? `raise_limits` suggests they don't | 02, 06 | Counters **persist across revisions** of a task. Limits on the new revision are totals. `raise_limits` exists to widen them |
 | **G4** | The state table sends `voicemail.received` to `escalated`, but 07 says an in-rule callback voicemail is auto-acted (redial to confirm) | 03 vs 07 | Add `waiting --voicemail.received(in_rule)--> queued` (redial to confirm, counts to limits), mirroring the email auto-act row |
 | **G5** | Only `timer.lifetime_expired` has a timeout (48h → `failed`). An `escalated` task the user never answers stays open for ever | 03 | Every `escalated` state gets an `escalation_expires_at` (default 7 days → `failed`, reason `user_unresponsive`) and a reminder notification at 48h |
@@ -300,7 +300,8 @@ Found while mapping the spec to code. Each needs a decision. The **proposed defa
   - The domain, email provider choice (P6), SPF/DKIM/DMARC and deliverability warm-up move to M11. Allow a few weeks there for warm-up.
   - Google OAuth verification also needs a domain (for the privacy policy and consent screen). Until then the app runs in Google's **testing mode**, which allows up to 100 named test users. That is enough for owner-only use.
 
+- **Q-E (G2).** Switch automatically when code can vouch for the new number, otherwise ask. Recorded as Q39 (2026-09-24).
+
 ### Still open
 
-- **Q-E (G2).** Does an extra tap to approve a new number after a wrong-number call feel like too much friction?
 - The other gaps in §5 (G1, G3–G5, G7–G12) use the proposed default unless the owner objects. They can be confirmed as each milestone plan is discussed.

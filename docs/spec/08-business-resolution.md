@@ -41,12 +41,25 @@ type ResolvedContact = {
    (The noun varies by business type: patient, customer, client.)
 2. The agent calls `confirm_business_identity(heard_name, heard_location)`.
    - **Match:** `identity_confirmed = true`. The agent then names the user ("I'm calling for David Example…") and continues.
-   - **Mismatch / unclear after one clarification:** the agent apologises and ends the call ("Sorry, wrong number — have a good day"). A `number_wrong` observation is logged, and the cached profile for that business is invalidated. Resolution re-runs, excluding that number. This counts as an attempt.
+   - **Mismatch / unclear after one clarification:** the agent apologises and ends the call ("Sorry, wrong number — have a good day"). A `number_wrong` observation is logged, and the cached profile for that business is invalidated. Resolution re-runs, excluding that number. This counts as an attempt. Whether Faff dials the new number without asking is decided by the deterministic check in [After a wrong number](#after-a-wrong-number) (Q39).
 3. Until the identity is confirmed, `reveal_profile_field` refuses every field, **including `full_name`**.
 
 **Why the user's name comes after the check rather than in the first sentence:** Q4 says "on behalf of [named user]". Naming them to a stranger who answered an out-of-date number is still a disclosure. The disclosure that matters for I-1 is *that it's an AI*, and that stays the first thing said. This ordering is derived rather than interviewed, so it is flagged for review.
 
 **IVR:** disclosure is aimed at humans. When the agent navigates an IVR it says nothing to it beyond menu choices. If an IVR asks for identifying details (such as a DOB by keypad), the agent does not enter them. It waits for a human or ends the call (`needs_user`).
+
+## After a wrong number
+
+**(Q39)** `mayAutoSwitchContact(task, brief, newContact, observations) → ok | reason` is a pure function in `core`. Faff dials the new contact without a new approval only if every condition holds:
+
+1. `brief.business.contactPolicy.autoSwitchOnWrongNumber` is true.
+2. The source is `user_memory`, **or** `web_extract` whose evidence URL is on the business's own domain or the NHS service directory (not a third-party directory).
+3. The value has no `number_wrong` observation for this business.
+4. The evidence page names the business's display name and matches its postcode or address.
+5. The task hasn't switched contact automatically before (at most one switch per task).
+6. `limits` still allow a dial (I-8).
+
+On success the worker records a `contact_switched` task event with the new `ResolvedContact` and its evidence, and dials that contact from then on. The Brief revision is never edited. The report shows the switch. On any failure the task escalates with `wrong_business_unresolved` and a suggested action to approve the new number. The identity check above still runs on the new call, so disclosure stays protected (I-7).
 
 ## What gets written back
 

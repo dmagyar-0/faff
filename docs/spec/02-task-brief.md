@@ -22,6 +22,9 @@ type Brief = {
     displayName: string;           // "Smile Dental, Clapham"
     address?: string;
     contact: ResolvedContact;      // see 08; carries evidence
+    contactPolicy: {
+      autoSwitchOnWrongNumber: boolean;  // Q39, default true; shown on the card
+    };
   };
 
   channel: {
@@ -95,4 +98,4 @@ type Limits = {
 
 ### What the user sees on the approval card
 
-Verb and business, the channel and why it was chosen, the contact and its source, the service, the existing appointment (for reschedule or cancel), the acceptance rule in plain English, the exact profile fields the agent may say, the limits, and the capability reminder ("Faff will say it's an AI. Some businesses will decline.").
+Verb and business, the channel and why it was chosen, the contact and its source, whether Faff may switch to one other verified number if this one is wrong (Q39), the service, the existing appointment (for reschedule or cancel), the acceptance rule in plain English, the exact profile fields the agent may say, the limits, and the capability reminder ("Faff will say it's an AI. Some businesses will decline.").
