@@ -12,3 +12,6 @@ dist/
 
 # Temporary files written by tooling/rails-selftest.mjs
 __selftest__/
+
+# Written by next build / next dev
+next-env.d.ts

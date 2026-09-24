@@ -1,11 +1,14 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": "src",
+    "rootDir": ".",
     "outDir": ".tsbuild",
-    "types": ["node"]
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "types": ["node"],
+    "plugins": [{ "name": "next" }]
   },
-  "include": ["src"],
+  "include": ["src", "content", "next.config.ts"],
   "references": [
     {
       "path": "../../packages/core"

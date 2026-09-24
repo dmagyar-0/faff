@@ -23,10 +23,11 @@
     "db:types": "supabase gen types typescript --local --workdir packages/db > packages/db/src/types.gen.ts && prettier --write --log-level warn packages/db/src/types.gen.ts",
     "db:rails": "node tooling/db-rails-selftest.mjs",
     "build": "pnpm -r --if-present build",
-    "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm deps && pnpm test && pnpm rails"
+    "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm deps && pnpm test && pnpm rails && pnpm build"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@next/eslint-plugin-next": "16.3.6",
     "@types/node": "24.13.6",
     "@vitest/coverage-v8": "5.0.1",
     "dependency-cruiser": "18.4.0",
