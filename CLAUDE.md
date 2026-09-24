@@ -17,7 +17,7 @@ Node 24 (`.nvmrc`) and pnpm 10 (`packageManager`).
 | Command | What it does |
 |---|---|
 | `pnpm install` | Install the workspace |
-| `pnpm check` | Everything CI runs except the secret scan. Run it before pushing |
+| `pnpm check` | Everything CI runs except the secret scan and the database job. Run it before pushing |
 | `pnpm lint` | ESLint, including the `packages/core` purity rules |
 | `pnpm format` / `pnpm format:check` | Prettier (Markdown is excluded on purpose) |
 | `pnpm typecheck` | `tsc -b` across the project references (typecheck only; nothing is emitted except declarations into `.tsbuild/`) |
@@ -26,6 +26,23 @@ Node 24 (`.nvmrc`) and pnpm 10 (`packageManager`).
 | `pnpm rails` | Proves the purity lint and the matrix still catch known violations |
 
 Tests sit next to the code as `*.test.ts`. Import `describe`/`it`/`expect` from `vitest` explicitly; there are no globals.
+
+### Database
+
+The Supabase project lives in `packages/db/supabase/`; the CLI is a root devDependency and every script passes `--workdir packages/db`. These need Docker, so they're not part of `pnpm check`; the CI `db` job runs them.
+
+| Command | What it does |
+|---|---|
+| `pnpm db:start` / `pnpm db:stop` | Start or stop the local stack |
+| `pnpm db:reset` | Rebuild the local database from `supabase/migrations/` |
+| `pnpm db:test` | pgTAP tests in `supabase/tests/` (`supabase test db`) |
+| `pnpm db:types` | Regenerate `packages/db/src/types.gen.ts` from the local database. Commit the result; CI fails on a diff |
+| `pnpm db:rails` | Proves the type-drift check and pgTAP still catch a table no migration created |
+
+- Change the schema only with a new migration file; never edit one that has reached `main`. Then run `pnpm db:reset && pnpm db:test && pnpm db:types`.
+- Never edit `types.gen.ts` by hand.
+- `pgtap` is test-only: tests enable it inside their own rolled-back transaction, never in a migration.
+- Migrations reach the hosted project (one for now, treated as prod) only through `.github/workflows/migrate.yml`, which runs automatically once CI passes on `main`. So a migration is live as soon as its PR merges: CI green on the PR is the only gate. Don't run `supabase db push` yourself.
 
 ## Layout and the dependency matrix
 

@@ -107,14 +107,14 @@ Four PRs, in order. 0.2 to 0.4 only depend on 0.1 and can be reviewed in paralle
 - `packages/db/src/types.gen.ts` from `supabase gen types typescript --local`, committed.
 - CI job `db`: `supabase start`, `supabase db reset`, `supabase test db`, regenerate types and fail on any diff.
 - `pnpm db:reset`, `pnpm db:test`, `pnpm db:types` scripts, documented in `CLAUDE.md`.
-- **Remote deployment of migrations:** a separate `migrate.yml` workflow, triggered on merge to `main`, that runs `supabase db push` against the hosted project from a GitHub *environment* with a required reviewer (M0-Q3). In M0 it has only the baseline migration to push.
+- **Remote deployment of migrations:** a separate `migrate.yml` workflow, triggered on merge to `main`, that runs `supabase db push` against the hosted project from a GitHub *environment* with a required reviewer (M0-Q3). In M0 it has only the baseline migration to push. *Owner, 2026-09-24: no reviewer; it runs automatically once CI passes on `main` (M0-Q3).*
 
 ### PR 0.3 — `apps/web` and Vercel
 
 - Next.js (App Router, current stable), React, strict TS, a single placeholder page that renders the capability line from the spec, and `transpilePackages` for `@faff/*`.
 - `apps/web/content/claims.ts` created empty with a header comment: changes need review (I-12). A `CODEOWNERS` entry makes that review required.
 - CI job `build-web`: `next build`.
-- Vercel project linked to the repo, root directory `apps/web`, function region `lhr1` (next to Supabase London), preview deployment per PR. Env vars point previews at the **dev** Supabase project and production at **prod** (M0-Q2).
+- Vercel project linked to the repo, root directory `apps/web`, function region `lhr1` (next to Supabase London), preview deployment per PR. Env vars point previews at the **dev** Supabase project and production at **prod** (M0-Q2). *Owner, 2026-09-24: one hosted project for now, so previews and production share it until a dev project exists.*
 
 ### PR 0.4 — `apps/worker` skeleton
 
@@ -128,7 +128,7 @@ Four PRs, in order. 0.2 to 0.4 only depend on 0.1 and can be reviewed in paralle
 
 These create accounts or spend money, so they need the owner's go-ahead. The Supabase and Vercel connectors in this environment can do the first two on request.
 
-- [ ] Create **two** Supabase projects in London (`eu-west-2`): `faff-dev` and `faff-prod`. Never reuse `dishton` ([01](../../spec/01-architecture.md#stack-q30)).
+- [x] Create **two** Supabase projects in London (`eu-west-2`): `faff-dev` and `faff-prod`. Never reuse `dishton` ([01](../../spec/01-architecture.md#stack-q30)). *Owner, 2026-09-24: one project, treated as prod, in its own org; dev waits until there are users (M0-Q2).*
 - [ ] Create the Vercel project and link it to the repo.
 - [ ] Create the Fly.io app (if P7 is accepted).
 - [ ] Add repo secrets: `SUPABASE_ACCESS_TOKEN`, DB passwords and project refs for both projects, `FLY_API_TOKEN`.
@@ -165,6 +165,6 @@ Each has a default; silence means the default.
 | # | Question | Default |
 |---|---|---|
 | **M0-Q1** | Accept **P7** (worker on Fly.io, London)? And deploy the health-check skeleton in M0, or wait until M4 when the worker does something? | Accept P7 and deploy in M0. A deployed `/readyz` flushes out secrets and networking to Supabase while nothing depends on them yet. Cost is one small machine |
-| **M0-Q2** | Environments: local + `faff-dev` + `faff-prod`, with Vercel previews on dev? | Yes. Pointing previews at the only database is a bad habit to start, even owner-only (G6). Two projects fit Supabase's free tier |
-| **M0-Q3** | Migrations to prod: automatic on merge, or behind a required approval? | Required approval (GitHub environment). Migrations are the one deploy that can't be rolled back by redeploying |
+| **M0-Q2** | Environments: local + `faff-dev` + `faff-prod`, with Vercel previews on dev? | Yes. Pointing previews at the only database is a bad habit to start, even owner-only (G6). Two projects fit Supabase's free tier. **Owner, 2026-09-24: overridden. Local + one hosted project treated as prod; add dev when there are users.** (The free tier allows 2 active projects per account and `dishton` holds one.) |
+| **M0-Q3** | Migrations to prod: automatic on merge, or behind a required approval? | Required approval (GitHub environment). Migrations are the one deploy that can't be rolled back by redeploying. **Owner, 2026-09-24: overridden. Automatic after CI passes on `main`; no approval step.** |
 | **M0-Q4** | Should I create the Supabase and Vercel projects through the connectors, or will you? | You say which. I won't create cloud resources without a yes |
