@@ -46,3 +46,4 @@ Decisions the interview didn't cover, but which follow from these records, are l
 | [Q36](Q36-sign-in-with-google-via-supabase-auth-magic-link-as-fallback.md) | Sign in with Google via Supabase Auth; magic link as fallback | ✓ |
 | [Q37](Q37-report-outcome-first-then-the-full-transcript.md) | Report: outcome first, then the full transcript | ✓ |
 | [Q38](Q38-spec-shape-multi-file-spec-plus-a-decision-record-per-questi.md) | Spec shape: multi-file spec plus a decision record per question | ✓ |
+| [Q39](Q39-after-a-wrong-number-switch-automatically-only-when-code-can-vouch-for-the-new-number.md) | After a wrong number, switch automatically only when code can vouch for the new number | **diverged** |

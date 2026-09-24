@@ -30,7 +30,8 @@ A **task** is one approved Brief being carried out, possibly across several call
 | `in_progress` | `call.ended(outcome=success)` | `completed` | The structured outcome validates, and proof steps are enqueued |
 | `in_progress` | `call.ended(no_answer/busy/voicemail/hung_up)` | `waiting` | Attempts remain (see redial policy) |
 | `in_progress` | `call.ended(outside_rule_offers)` | `escalated` | At least one recorded offer |
-| `in_progress` | `call.ended(wrong_business)` | `waiting` | A wrong-number observation is logged and contact resolution re-runs ([08](08-business-resolution.md)) |
+| `in_progress` | `call.ended(wrong_business)` | `waiting` | A wrong-number observation is logged and contact resolution re-runs ([08](08-business-resolution.md)). The new contact passes the Q39 confidence check, and the Brief allows `autoSwitchOnWrongNumber`. A `contact_switched` event is recorded |
+| `in_progress` | `call.ended(wrong_business)` | `escalated` | Otherwise. Reason `wrong_business_unresolved`, with a suggested action to approve the new number (Q39) |
 | `in_progress` | `call.ended(refused_ai)` | `escalated` | Reason `refused_ai`. The user may call themselves or switch to email. |
 | `in_progress` | `email.sent` | `waiting` | — |
 | `waiting` | `timer.redial` | `queued` | — |

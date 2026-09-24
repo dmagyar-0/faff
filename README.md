@@ -8,3 +8,4 @@ The chat agent drafts a **Task Brief**, the user approves it, and an agent that 
 
 - Spec: [`docs/spec/`](docs/spec/README.md). Start with [`00-invariants.md`](docs/spec/00-invariants.md).
 - Decisions and their reasoning: [`docs/decisions/`](docs/decisions/README.md)
+- Implementation design and build plan: [`docs/design/implementation-plan.md`](docs/design/implementation-plan.md)
