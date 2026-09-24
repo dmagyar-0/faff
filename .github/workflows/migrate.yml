@@ -1,25 +1,25 @@
-# Applies packages/db/supabase/migrations to the hosted project on merge to main (M0 plan §5,
-# PR 0.2), behind a required reviewer (M0-Q3): a migration is the one deploy that redeploying
-# can't roll back.
+# Applies packages/db/supabase/migrations to the hosted project automatically after a merge to
+# main (M0 plan §5, PR 0.2). No human approval (owner, M0-Q3): the gate is that CI, including
+# the `db` job's reset, pgTAP run and type-drift check, has passed on that exact commit.
 #
 # One hosted project for now, treated as prod (owner, M0-Q2). A separate dev project comes back
-# when there are users; add a second job for it then, ahead of this one.
+# when there are users; add a job for it then, ahead of this one.
 #
-# Skipped while SUPABASE_PROJECT_REF is unset, so GitHub never auto-creates the environment
-# without its protection. To enable, in this order:
-#   1. Environment `supabase-prod`: required reviewer, deployment branches limited to `main`,
-#      secret SUPABASE_DB_PASSWORD.
+# Skipped while SUPABASE_PROJECT_REF is unset. To enable:
+#   1. Environment `supabase-prod`: deployment branches limited to `main`, secret
+#      SUPABASE_DB_PASSWORD. (No required reviewer.)
 #   2. Repo secret SUPABASE_ACCESS_TOKEN.
 #   3. Repo variable SUPABASE_PROJECT_REF (the project's ref, not a secret).
 
 name: Migrate
 
 on:
-  push:
+  # Runs whenever CI finishes on main; the job below proceeds only if CI passed. `db push` is a
+  # no-op when nothing is pending. (workflow_run fires only from the copy of this file on main.)
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
-    paths:
-      - packages/db/supabase/migrations/**
-      - .github/workflows/migrate.yml
   workflow_dispatch:
 
 permissions:
@@ -32,7 +32,13 @@ concurrency:
 
 jobs:
   prod:
-    if: vars.SUPABASE_PROJECT_REF != ''
+    if: >-
+      vars.SUPABASE_PROJECT_REF != '' && (
+        github.event_name == 'workflow_dispatch' || (
+          github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.event == 'push'
+        )
+      )
     runs-on: ubuntu-latest
     environment: supabase-prod
     env:
@@ -41,6 +47,9 @@ jobs:
       PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          # The commit CI just passed, not whatever main points at now.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
       - uses: ./.github/actions/setup
       - name: Pending migrations
         run: pnpm exec supabase db push --workdir packages/db --project-ref "$PROJECT_REF" --dry-run
