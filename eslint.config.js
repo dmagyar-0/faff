@@ -1,6 +1,7 @@
 import { builtinModules } from "node:module";
 
 import js from "@eslint/js";
+import nextPlugin from "@next/eslint-plugin-next";
 import prettier from "eslint-config-prettier";
 import { defineConfig } from "eslint/config";
 import globals from "globals";
@@ -89,6 +90,15 @@ export default defineConfig(
   {
     files: ["**/*.{js,mjs,cjs}", "tooling/**", "*.config.ts"],
     languageOptions: { globals: globals.node },
+  },
+  {
+    files: ["apps/web/**/*.{ts,tsx}"],
+    plugins: { "@next/next": nextPlugin },
+    rules: {
+      ...nextPlugin.configs.recommended.rules,
+      ...nextPlugin.configs["core-web-vitals"].rules,
+    },
+    settings: { next: { rootDir: "apps/web" } },
   },
   {
     files: ["packages/core/src/**/*.ts"],

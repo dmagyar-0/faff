@@ -22,6 +22,7 @@ Node 24 (`.nvmrc`) and pnpm 10 (`packageManager`).
 | `pnpm format` / `pnpm format:check` | Prettier (Markdown is excluded on purpose) |
 | `pnpm typecheck` | `tsc -b` across the project references (typecheck only; nothing is emitted except declarations into `.tsbuild/`) |
 | `pnpm test` / `pnpm test:coverage` | Vitest across every package |
+| `pnpm build` | Builds the apps (`next build` for `apps/web`) |
 | `pnpm deps` | dependency-cruiser: the workspace dependency matrix |
 | `pnpm rails` | Proves the purity lint and the matrix still catch known violations |
 
@@ -66,6 +67,12 @@ Internal packages export TypeScript source (`"exports": { ".": "./src/index.ts" 
 ## `packages/core` is pure
 
 No network, clock, randomness, environment, console or database. Lint rejects `Date.now()`, `new Date()`, `Math.random()`, `Temporal.Now`, `fetch`, `process`, `crypto`, timers, `node:*` imports and any `@faff/*` import in `packages/core/src` (tests are exempt). Take `now`, IDs and data as arguments. This is what makes the property tests mean something, and what makes I-9's "deterministic, not an LLM judgement" true.
+
+## `apps/web`
+
+Next.js App Router, deployed on Vercel (root directory `apps/web`, region `lhr1`). `next build` compiles the workspace packages from source (`transpilePackages`) and typechecks with `tsconfig.next.json`, which reads them as source; `pnpm typecheck` still covers the app through `tsconfig.json`.
+
+Every user-facing claim about what Faff can do lives in `apps/web/content/claims.ts` (I-12). Don't put capability copy anywhere else; `CODEOWNERS` makes a review required to change that file.
 
 ## Don't
 

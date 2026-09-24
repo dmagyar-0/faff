@@ -1,0 +1,3 @@
+# Capability claims (I-12): a review is required to change what Faff says it can do.
+# Enforced once branch protection on main requires code owner review.
+/apps/web/content/claims.ts @dmagyar-0

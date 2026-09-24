@@ -57,6 +57,15 @@ jobs:
       - uses: ./.github/actions/setup
       - run: pnpm rails
 
+  build-web:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_TELEMETRY_DISABLED: 1
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: pnpm --filter @faff/web build
+
   # Local Supabase from the migrations: reset, pgTAP, and the generated-types drift check.
   db:
     runs-on: ubuntu-latest
