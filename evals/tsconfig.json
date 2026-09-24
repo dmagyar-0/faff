@@ -1,0 +1,32 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": ".tsbuild",
+    "types": ["node"]
+  },
+  "include": ["src"],
+  "references": [
+    {
+      "path": "../packages/core"
+    },
+    {
+      "path": "../packages/db"
+    },
+    {
+      "path": "../packages/tools"
+    },
+    {
+      "path": "../packages/agents"
+    },
+    {
+      "path": "../packages/telephony"
+    },
+    {
+      "path": "../packages/email"
+    },
+    {
+      "path": "../packages/sim"
+    }
+  ]
+}

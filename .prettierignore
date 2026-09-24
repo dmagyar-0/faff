@@ -1,0 +1,3 @@
+pnpm-lock.yaml
+# Docs are hand-formatted; reflowing the spec's tables would bury real diffs.
+*.md

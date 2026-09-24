@@ -1,0 +1,19 @@
+{
+  "name": "@faff/worker",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Task runner, tools HTTP and webhooks.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@faff/core": "workspace:*",
+    "@faff/db": "workspace:*",
+    "@faff/tools": "workspace:*",
+    "@faff/agents": "workspace:*",
+    "@faff/telephony": "workspace:*",
+    "@faff/email": "workspace:*",
+    "@faff/sim": "workspace:*"
+  }
+}

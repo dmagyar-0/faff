@@ -1,0 +1,15 @@
+{
+  "name": "@faff/web",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Next.js app: chat, Brief approval, inbox, reports, profile, settings.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@faff/core": "workspace:*",
+    "@faff/db": "workspace:*",
+    "@faff/agents": "workspace:*"
+  }
+}

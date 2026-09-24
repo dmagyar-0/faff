@@ -1,0 +1,14 @@
+{
+  "name": "@faff/agents",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Chat, phone and email agents and the lookup extractor. Never imports db.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@faff/core": "workspace:*",
+    "@faff/tools": "workspace:*"
+  }
+}
