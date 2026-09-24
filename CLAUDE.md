@@ -42,7 +42,7 @@ The Supabase project lives in `packages/db/supabase/`; the CLI is a root devDepe
 - Change the schema only with a new migration file; never edit one that has reached `main`. Then run `pnpm db:reset && pnpm db:test && pnpm db:types`.
 - Never edit `types.gen.ts` by hand.
 - `pgtap` is test-only: tests enable it inside their own rolled-back transaction, never in a migration.
-- Migrations reach the hosted projects only through `.github/workflows/migrate.yml` (dev, then prod behind a required reviewer). Don't run `supabase db push` yourself.
+- Migrations reach the hosted project (one for now, treated as prod) only through `.github/workflows/migrate.yml`, behind a required reviewer. Don't run `supabase db push` yourself.
 
 ## Layout and the dependency matrix
 

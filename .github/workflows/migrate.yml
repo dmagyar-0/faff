@@ -1,14 +1,16 @@
-# Applies packages/db/supabase/migrations to the hosted projects on merge to main (M0 plan §5,
-# PR 0.2). faff-dev first, then faff-prod behind a required reviewer (M0-Q3): a migration is the
-# one deploy that redeploying can't roll back.
+# Applies packages/db/supabase/migrations to the hosted project on merge to main (M0 plan §5,
+# PR 0.2), behind a required reviewer (M0-Q3): a migration is the one deploy that redeploying
+# can't roll back.
 #
-# Dormant until the owner creates the projects (M0-Q4). Each job is skipped while its project
-# ref is unset, so no GitHub environment is auto-created without protection. To enable:
-#   1. Repo variables: SUPABASE_DEV_PROJECT_REF, SUPABASE_PROD_PROJECT_REF.
-#   2. Repo secret: SUPABASE_ACCESS_TOKEN.
-#   3. Environments `supabase-dev` and `supabase-prod`, each with secret SUPABASE_DB_PASSWORD and
-#      deployment branches limited to `main`. `supabase-prod` gets a required reviewer.
-#      Create them before setting the variables.
+# One hosted project for now, treated as prod (owner, M0-Q2). A separate dev project comes back
+# when there are users; add a second job for it then, ahead of this one.
+#
+# Skipped while SUPABASE_PROJECT_REF is unset, so GitHub never auto-creates the environment
+# without its protection. To enable, in this order:
+#   1. Environment `supabase-prod`: required reviewer, deployment branches limited to `main`,
+#      secret SUPABASE_DB_PASSWORD.
+#   2. Repo secret SUPABASE_ACCESS_TOKEN.
+#   3. Repo variable SUPABASE_PROJECT_REF (the project's ref, not a secret).
 
 name: Migrate
 
@@ -23,37 +25,20 @@ on:
 permissions:
   contents: read
 
-# Never run two pushes against the same database at once, and never cancel one mid-flight.
+# Never run two pushes against the database at once, and never cancel one mid-flight.
 concurrency:
   group: migrate
   cancel-in-progress: false
 
 jobs:
-  dev:
-    if: vars.SUPABASE_DEV_PROJECT_REF != ''
-    runs-on: ubuntu-latest
-    environment: supabase-dev
-    env:
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-      PROJECT_REF: ${{ vars.SUPABASE_DEV_PROJECT_REF }}
-    steps:
-      - uses: actions/checkout@v5
-      - uses: ./.github/actions/setup
-      - name: Pending migrations
-        run: pnpm exec supabase db push --workdir packages/db --project-ref "$PROJECT_REF" --dry-run
-      - name: Push
-        run: pnpm exec supabase db push --workdir packages/db --project-ref "$PROJECT_REF" --yes
-
   prod:
-    needs: dev
-    if: vars.SUPABASE_PROD_PROJECT_REF != ''
+    if: vars.SUPABASE_PROJECT_REF != ''
     runs-on: ubuntu-latest
     environment: supabase-prod
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-      PROJECT_REF: ${{ vars.SUPABASE_PROD_PROJECT_REF }}
+      PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup
