@@ -4,6 +4,6 @@ One plan per milestone from the [implementation plan §4](../implementation-plan
 
 | Milestone | Plan | Status |
 |---|---|---|
-| M0 | [Foundations](M0-foundations.md) | Plan for review |
-| M1 | [`core` domain](M1-core-domain.md) | Plan for review |
+| M0 | [Foundations](M0-foundations.md) | Accepted; PR 0.1 in progress |
+| M1 | [`core` domain](M1-core-domain.md) | Accepted |
 | M2–M11 | Not yet written | — |

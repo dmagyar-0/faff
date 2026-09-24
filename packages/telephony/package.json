@@ -1,0 +1,14 @@
+{
+  "name": "@faff/telephony",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The CallProvider interface and its simulated and hosted providers.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@faff/core": "workspace:*",
+    "@faff/sim": "workspace:*"
+  }
+}

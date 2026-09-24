@@ -1,6 +1,6 @@
 # M1 — `core` domain
 
-**Status:** plan for review · **Date:** 2026-09-24 · **Parent:** [implementation plan §2.1, §4](../implementation-plan.md#21-packagescore-pure-domain-logic-no-io) · **Depends on:** [M0](M0-foundations.md)
+**Status:** accepted with every default (owner, 2026-09-24) · **Date:** 2026-09-24 · **Parent:** [implementation plan §2.1, §4](../implementation-plan.md#21-packagescore-pure-domain-logic-no-io) · **Depends on:** [M0](M0-foundations.md)
 
 M1 writes `packages/core`: every rule in the spec that can be decided without I/O, as pure functions with unit and property tests. It is the package that decides correctness. The worker, the tools and the graders all call into it, so a bug here is a bug everywhere, and a rule that's right here is right everywhere.
 

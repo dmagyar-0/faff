@@ -1,0 +1,57 @@
+# Faff — notes for agents working in this repo
+
+Faff is a UK consumer web app that books, reschedules and cancels appointments by phone and email, through an agent that always says it's an AI. The spec is written for you (Q8). Read it before changing behaviour.
+
+## Read first
+
+1. [`docs/spec/00-invariants.md`](docs/spec/00-invariants.md): the rules I-1 to I-12. No change may break one. An invariant enforced only by a prompt isn't enforced.
+2. [`docs/design/implementation-plan.md`](docs/design/implementation-plan.md): how it's built, and the build order.
+3. The plan for the milestone you're working on: [`docs/design/milestones/`](docs/design/milestones/README.md).
+
+**Decision records** in `docs/decisions/` are never edited once accepted. To change one, add a record that supersedes it and update the spec in the same PR.
+
+## Commands
+
+Node 24 (`.nvmrc`) and pnpm 10 (`packageManager`).
+
+| Command | What it does |
+|---|---|
+| `pnpm install` | Install the workspace |
+| `pnpm check` | Everything CI runs except the secret scan. Run it before pushing |
+| `pnpm lint` | ESLint, including the `packages/core` purity rules |
+| `pnpm format` / `pnpm format:check` | Prettier (Markdown is excluded on purpose) |
+| `pnpm typecheck` | `tsc -b` across the project references (typecheck only; nothing is emitted except declarations into `.tsbuild/`) |
+| `pnpm test` / `pnpm test:coverage` | Vitest across every package |
+| `pnpm deps` | dependency-cruiser: the workspace dependency matrix |
+| `pnpm rails` | Proves the purity lint and the matrix still catch known violations |
+
+Tests sit next to the code as `*.test.ts`. Import `describe`/`it`/`expect` from `vitest` explicitly; there are no globals.
+
+## Layout and the dependency matrix
+
+Internal packages export TypeScript source (`"exports": { ".": "./src/index.ts" }`); there's no per-package build.
+
+| Package | May import | Purpose |
+|---|---|---|
+| `packages/core` | nothing internal | Pure domain logic. Runtime deps limited to `zod`, `temporal-polyfill`, `@noble/hashes`, `canonicalize` |
+| `packages/db` | core | Migrations, generated types, repositories |
+| `packages/tools` | core, db | The tool server: the enforcement point (D3) |
+| `packages/agents` | core, tools | Agents. **Never `db`**: data comes only through tools (I-7) |
+| `packages/telephony` | core, sim | `CallProvider` and its providers |
+| `packages/email` | core | Renderer (fixed signature) and inbound parser |
+| `packages/sim` | core | Simulated callee personas, IVR trees, scenarios |
+| `evals` | anything | Scenario runner and graders |
+| `apps/web` | core, db, agents | Next.js app |
+| `apps/worker` | everything but web | Runner, tools HTTP, webhooks |
+
+`.dependency-cruiser.cjs` is the source of truth. Adding an edge means editing its `MATRIX`, the matching `package.json` and the `tsconfig.json` references, in a PR where review can see it.
+
+## `packages/core` is pure
+
+No network, clock, randomness, environment, console or database. Lint rejects `Date.now()`, `new Date()`, `Math.random()`, `Temporal.Now`, `fetch`, `process`, `crypto`, timers, `node:*` imports and any `@faff/*` import in `packages/core/src` (tests are exempt). Take `now`, IDs and data as arguments. This is what makes the property tests mean something, and what makes I-9's "deterministic, not an LLM judgement" true.
+
+## Don't
+
+- Commit secrets. Use `.env.example`; real values live in Vercel, Fly and GitHub secrets. CI runs gitleaks over the full history.
+- Weaken a rule to make CI pass: the purity lint, the matrix, a coverage threshold, or the rails self-test. If a rule is wrong, change it on purpose in its own PR and say why.
+- Put a model ID in code. Model IDs come from config (spec 01).

@@ -1,0 +1,10 @@
+{
+  "name": "@faff/core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Pure domain logic: no I/O, clock or randomness. Everything else may depend on it.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

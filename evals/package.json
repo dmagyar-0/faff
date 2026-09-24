@@ -1,0 +1,19 @@
+{
+  "name": "@faff/evals",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Scenario suite runner and graders; the CI gate for real calls.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@faff/core": "workspace:*",
+    "@faff/db": "workspace:*",
+    "@faff/tools": "workspace:*",
+    "@faff/agents": "workspace:*",
+    "@faff/telephony": "workspace:*",
+    "@faff/email": "workspace:*",
+    "@faff/sim": "workspace:*"
+  }
+}

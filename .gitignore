@@ -1,0 +1,14 @@
+node_modules/
+.tsbuild/
+*.tsbuildinfo
+coverage/
+dist/
+.next/
+
+# Secrets never live in the repo. Copy .env.example instead.
+.env
+.env.*
+!.env.example
+
+# Temporary files written by tooling/rails-selftest.mjs
+__selftest__/

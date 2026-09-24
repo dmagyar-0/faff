@@ -1,0 +1,13 @@
+{
+  "name": "@faff/db",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Supabase migrations, generated types and repository functions.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@faff/core": "workspace:*"
+  }
+}

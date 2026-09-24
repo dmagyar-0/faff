@@ -1,6 +1,6 @@
 # M0 — Foundations
 
-**Status:** plan for review · **Date:** 2026-09-24 · **Parent:** [implementation plan §4](../implementation-plan.md#4-build-plan)
+**Status:** accepted with every default (owner, 2026-09-24) · **Date:** 2026-09-24 · **Parent:** [implementation plan §4](../implementation-plan.md#4-build-plan)
 
 M0 builds the empty house: a monorepo that lints, typechecks, tests and builds in CI; a local Supabase that resets from migrations; a Next.js app on Vercel; and a worker container that answers a health check. No product code. The point is that from M1 onwards every PR lands on rails that already enforce the spec's structural rules (the package dependency rule, "`core` has no I/O"), so those rules are never retrofitted.
 
@@ -44,7 +44,7 @@ These are engineering defaults, not owner decisions. They're stated so review ca
 | Runtime | Node 24 LTS, pinned in `.nvmrc` and `engines` | Current LTS; same version in CI, Docker and Vercel |
 | Package manager | pnpm 10, pinned via `packageManager` | The spec says pnpm. Strict `node_modules` means an undeclared dependency fails to resolve, which backs up the dependency rules |
 | Modules | ESM everywhere (`"type": "module"`) | One module system across web, worker and tests |
-| TypeScript | Strict, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`. Project references with `tsc -b` for **typechecking only** (`emitDeclarationOnly`) | `exactOptionalPropertyTypes` matters for the Brief: "absent" and "`undefined`" must not be the same thing when hashing (P3) |
+| TypeScript | **6.0**, not 7: typescript-eslint doesn't support 7 yet (peer range `<6.1`). Strict, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`. Project references with `tsc -b` for **typechecking only** (`emitDeclarationOnly`) | `exactOptionalPropertyTypes` matters for the Brief: "absent" and "`undefined`" must not be the same thing when hashing (P3) |
 | How packages are consumed | Internal packages export TypeScript source. Next.js compiles them via `transpilePackages`; the worker is bundled with esbuild; Vitest runs TS directly | No per-package build step, no stale `dist/`. The only artefacts are the web build and the worker bundle |
 | Lint | ESLint (flat config) + typescript-eslint, `next` rules in `apps/web` | Needed for the purity rules in §4, which Biome can't express yet |
 | Format | Prettier, checked in CI | Conventional; zero config debate |
