@@ -1,6 +1,7 @@
 import { builtinModules } from "node:module";
 
 import js from "@eslint/js";
+import nextPlugin from "@next/eslint-plugin-next";
 import prettier from "eslint-config-prettier";
 import { defineConfig } from "eslint/config";
 import globals from "globals";
@@ -94,6 +95,12 @@ export default defineConfig(
     files: ["packages/core/src/**/*.ts"],
     ignores: ["**/*.test.ts"],
     rules: corePurity,
+  },
+  // Next.js rules, for apps/web only (M0 plan §2).
+  {
+    files: ["apps/web/**/*.{ts,tsx}"],
+    ...nextPlugin.configs["core-web-vitals"],
+    settings: { next: { rootDir: "apps/web/" } },
   },
   prettier,
 );

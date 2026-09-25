@@ -18,12 +18,12 @@ Node 24 (`.nvmrc`) and pnpm 10 (`packageManager`).
 |---|---|
 | `pnpm install` | Install the workspace |
 | `pnpm check` | Everything CI runs except the secret scan and the database job. Run it before pushing |
-| `pnpm lint` | ESLint, including the `packages/core` purity rules |
+| `pnpm lint` | ESLint (zero warnings), including the `packages/core` purity rules and the Next rules for `apps/web` |
 | `pnpm format` / `pnpm format:check` | Prettier (Markdown is excluded on purpose) |
 | `pnpm typecheck` | `tsc -b` across the project references (typecheck only; nothing is emitted except declarations into `.tsbuild/`) |
 | `pnpm test` / `pnpm test:coverage` | Vitest across every package |
 | `pnpm deps` | dependency-cruiser: the workspace dependency matrix |
-| `pnpm rails` | Proves the purity lint and the matrix still catch known violations |
+| `pnpm rails` | Proves the purity lint, the Next lint scope, the matrix and the `claims.ts` CODEOWNERS entry still catch known violations |
 
 Tests sit next to the code as `*.test.ts`. Import `describe`/`it`/`expect` from `vitest` explicitly; there are no globals.
 
@@ -43,6 +43,12 @@ The Supabase project lives in `packages/db/supabase/`; the CLI is a root devDepe
 - Never edit `types.gen.ts` by hand.
 - `pgtap` is test-only: tests enable it inside their own rolled-back transaction, never in a migration.
 - Migrations reach the hosted project (one for now, treated as prod) only through `.github/workflows/migrate.yml`, which runs automatically once CI passes on `main`. So a migration is live as soon as its PR merges: CI green on the PR is the only gate. Don't run `supabase db push` yourself.
+
+### Web
+
+`pnpm --filter @faff/web dev` / `build` run Next.js (App Router) from `apps/web` (env: copy `.env.example` to `.env.local`). Vercel builds it with root directory `apps/web`, functions in `lhr1`, a preview deployment per PR. Previews and production share the one hosted Supabase project for now (M0-Q2).
+
+**Capability claims (I-12):** every user-facing string about what Faff can or can't do lives in `apps/web/content/claims.ts`, never inline in a component. `.github/CODEOWNERS` makes a review required to change it; the rails self-test fails if that entry goes.
 
 ## Layout and the dependency matrix
 

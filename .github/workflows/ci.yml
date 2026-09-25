@@ -79,6 +79,16 @@ jobs:
       # Proves the drift check and pgTAP still fail on a table no migration created.
       - run: pnpm db:rails
 
+  # The Next.js production build of apps/web (type errors and prerender failures show up here).
+  build-web:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_TELEMETRY_DISABLED: 1
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: pnpm --filter @faff/web build
+
   secrets:
     runs-on: ubuntu-latest
     env:

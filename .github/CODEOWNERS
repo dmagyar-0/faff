@@ -1,0 +1,8 @@
+# Branch protection on main requires a review from a code owner for these paths.
+
+# I-12: every user-facing capability claim lives in this file, and a review is required to
+# change it (docs/spec/00-invariants.md).
+/apps/web/content/claims.ts @dmagyar-0
+
+# This file, so the rule above can't be removed without the same review.
+/.github/CODEOWNERS @dmagyar-0

@@ -70,7 +70,23 @@ for (const [label, code] of Object.entries(mustPass)) {
   }
 }
 
-// --- 2. The dependency matrix -------------------------------------------------------------
+// --- 2. Next.js lint rules: apps/web only ------------------------------------------------
+
+{
+  const code = 'export const I = () => <img src="/a.png" alt="" />;';
+  const lint = async (file) => {
+    const [result] = await eslint.lintText(code, { filePath: path.join(root, file) });
+    return result.messages.some((m) => m.ruleId === "@next/next/no-img-element");
+  };
+  if (!(await lint("apps/web/src/app/__selftest__.tsx"))) {
+    failures.push("next lint: <img> in apps/web was not reported by @next/next/no-img-element");
+  }
+  if (await lint("packages/agents/src/__selftest__.tsx")) {
+    failures.push("next lint: a Next rule was applied outside apps/web");
+  }
+}
+
+// --- 3. The dependency matrix -------------------------------------------------------------
 
 const fixtures = {
   // A relative import across packages dodges pnpm; the matrix rule must still catch it.
@@ -128,6 +144,28 @@ try {
   for (const dir of written) fs.rmSync(dir, { recursive: true, force: true });
 }
 
+// --- 4. CODEOWNERS: claims.ts needs a review (I-12) --------------------------------------
+
+{
+  // GitHub applies the *last* matching line, and a line with no owners removes the requirement.
+  const rules = fs
+    .readFileSync(path.join(root, ".github/CODEOWNERS"), "utf8")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("#"))
+    .map((line) => line.split(/\s+/));
+  const matches = (pattern, file) =>
+    pattern === "*" ||
+    pattern.replace(/^\//, "") === file ||
+    (pattern.endsWith("/") && file.startsWith(pattern.replace(/^\//, "")));
+
+  for (const file of ["apps/web/content/claims.ts", ".github/CODEOWNERS"]) {
+    if (!fs.existsSync(path.join(root, file))) failures.push(`codeowners: ${file} is missing`);
+    const last = rules.findLast(([pattern]) => matches(pattern, file));
+    if (!last || last.length < 2) failures.push(`codeowners: ${file} has no required owner`);
+  }
+}
+
 // --- Result -------------------------------------------------------------------------------
 
 if (failures.length > 0) {
@@ -137,5 +175,6 @@ if (failures.length > 0) {
 }
 const count = Object.keys(mustFail).length + Object.keys(mustPass).length + 1;
 console.log(
-  `Rails self-test passed: ${count} purity-lint cases, ${Object.keys(fixtures).length} dependency cases.`,
+  `Rails self-test passed: ${count} purity-lint cases, 2 Next lint cases, ` +
+    `${Object.keys(fixtures).length} dependency cases, 2 CODEOWNERS cases.`,
 );
