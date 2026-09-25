@@ -1,0 +1,71 @@
+# Deploys apps/worker to Fly.io (P7, M0 plan §5, PR 0.4). Manual only, from main.
+#
+# Skipped (green, with a notice) while FLY_APP or FLY_API_TOKEN is unset. To enable:
+#   1. Create the Fly app in region lhr and set its DATABASE_URL secret (fly secrets set).
+#   2. Repo secret FLY_API_TOKEN: a deploy token scoped to that app (fly tokens create deploy).
+#   3. Repo variable FLY_APP: the app's name (not a secret).
+
+name: Deploy worker
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deploy at a time; never cancel one mid-flight.
+concurrency:
+  group: deploy-worker
+  cancel-in-progress: false
+
+jobs:
+  # Secrets can't appear in a job-level `if`, so a gate job checks both and says why it skipped.
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - id: check
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          FLY_APP: ${{ vars.FLY_APP }}
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Deploy the worker from main only (got $GITHUB_REF)."
+            exit 1
+          fi
+          if [ -z "$FLY_APP" ] || [ -z "$FLY_API_TOKEN" ]; then
+            echo "::notice::Skipping: set repo variable FLY_APP and secret FLY_API_TOKEN to deploy."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy:
+    needs: gate
+    if: needs.gate.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      FLY_APP: ${{ vars.FLY_APP }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: superfly/flyctl-actions/setup-flyctl@1.6
+      # Fly's remote builder builds apps/worker/Dockerfile with the repo root as context.
+      # --ha=false keeps it to the one machine fly.toml describes.
+      - run: >-
+          flyctl deploy . --remote-only --ha=false --app "$FLY_APP"
+          --config apps/worker/fly.toml --dockerfile apps/worker/Dockerfile
+      # Flushes out a wrong DATABASE_URL or a networking gap to Supabase now, while nothing
+      # depends on the worker yet (M0-Q1).
+      - name: Health and readiness
+        run: |
+          base="https://$FLY_APP.fly.dev"
+          for path in healthz readyz; do
+            for i in $(seq 1 10); do
+              curl -fsS "$base/$path" && echo && continue 2
+              sleep 3
+            done
+            echo "::error::$base/$path did not answer 200"
+            exit 1
+          done
