@@ -14,4 +14,8 @@ export * from "./canonical";
 export * from "./acceptance";
 export * from "./heard-date";
 export { compareInstants, type Instant, instantOf, type PlainDate, tryInstantOf } from "./time";
+export * from "./secrets";
+export * from "./locale/en-GB";
+export * from "./render/acceptance-rule";
+export * from "./render/brief-card";
 export { normalisePractitioner, samePractitioner } from "./practitioner";

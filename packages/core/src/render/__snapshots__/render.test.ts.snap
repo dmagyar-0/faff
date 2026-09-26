@@ -1,0 +1,161 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`briefCard: snapshots, one per verb > an email Brief with a web-found contact, notes and no disclosable fields 1`] = `
+"What
+Book at “Smile Dental, Clapham” (vet), for David.
+Every email is signed: “Sent by Faff, an AI assistant acting on behalf of the person named above. Faff is not that person and cannot answer security questions for them.”
+
+How
+By email, because this business has recently preferred email.
+If there's no reply Faff can act on within 1 working day, it asks you what to do: it has no phone number for them.
+
+Contact
+hello@paws.example, found on https://paws.example/contact, which says: “Email hello@paws.example for appointments”.
+
+Service
+Booster jab.
+Any practitioner.
+You're a new client.
+
+Acceptable times
+Accepts weekdays 09:00–12:00, from Thu 1 Oct 2026 to Sat 31 Oct 2026. Takes the earliest it's offered. Avoids clashes with your calendar, with 30 minutes either side.
+
+What Faff may tell them
+Your first name (David) and last initial go in every email, with what you're asking for.
+Nothing else about you.
+
+Limits
+Up to 1 call and 10 minutes on the phone in all, within 1 day 12 hours. Then Faff stops and asks you.
+
+Notes for the agent (context only)
+Ask whether they can do Saturday.
+
+Remember
+Faff will say it's an AI. Some businesses will decline."
+`;
+
+exports[`briefCard: snapshots, one per verb > book 1`] = `
+"What
+Book at “Smile Dental, Clapham” (dentist), for David.
+Faff opens the call with: “Hi, I'm an AI assistant calling on behalf of a patient — is this Smile Dental in Clapham?”
+
+How
+By phone, because phone is the default.
+
+Contact
++442079460000, from your saved details.
+If this number turns out to be wrong, Faff may switch to one other number it can verify from the business's own site, the NHS directory or your saved details.
+
+Service
+Routine check-up and hygienist.
+About 40 minutes.
+
+Acceptable times
+Accepts weekdays 09:00–12:00, from Thu 1 Oct 2026 to Sat 31 Oct 2026. Takes the earliest it's offered. Avoids clashes with your calendar, with 30 minutes either side.
+
+What Faff may tell them
+Your first name (David) and your full name, your date of birth and your postcode, and only once they've confirmed who they are.
+
+Limits
+Up to 3 calls and 30 minutes on the phone in all, within 7 days. Then Faff stops and asks you.
+
+Remember
+Faff will say it's an AI. Some businesses will decline."
+`;
+
+exports[`briefCard: snapshots, one per verb > cancel 1`] = `
+"What
+Cancel at “Smile Dental, Clapham” (dentist), for David.
+Faff opens the call with: “Hi, I'm an AI assistant calling on behalf of a patient — is this Smile Dental in Clapham?”
+
+How
+By phone, because phone is the default.
+
+Contact
++442079460000, from your saved details.
+If this number turns out to be wrong, Faff may switch to one other number it can verify from the business's own site, the NHS directory or your saved details.
+
+Service
+Routine check-up and hygienist.
+About 40 minutes.
+
+Existing appointment
+Wed 14 Oct 2026 09:30 (ref 4417).
+
+Cancellation
+You'll be asked to confirm this cancellation once more before Faff contacts them.
+
+What Faff may tell them
+Your first name (David) and your full name, your date of birth and your postcode, and only once they've confirmed who they are.
+
+Limits
+Up to 3 calls and 30 minutes on the phone in all, within 7 days. Then Faff stops and asks you.
+
+Remember
+Faff will say it's an AI. Some businesses will decline."
+`;
+
+exports[`briefCard: snapshots, one per verb > paired cancel 1`] = `
+"What
+Cancel at “Smile Dental, Clapham” (dentist), for David.
+Faff opens the call with: “Hi, I'm an AI assistant calling on behalf of a patient — is this Smile Dental in Clapham?”
+
+How
+By phone, because phone is the default.
+
+Contact
++442079460000, from your saved details.
+If this number turns out to be wrong, Faff may switch to one other number it can verify from the business's own site, the NHS directory or your saved details.
+
+Service
+Routine check-up and hygienist.
+About 40 minutes.
+
+Existing appointment
+Wed 14 Oct 2026 09:30 (ref 4417).
+
+Cancellation
+Only once your new booking has succeeded. You'll confirm this cancellation separately.
+
+What Faff may tell them
+Your first name (David) and your full name, your date of birth and your postcode, and only once they've confirmed who they are.
+
+Limits
+Up to 3 calls and 30 minutes on the phone in all, within 7 days. Then Faff stops and asks you.
+
+Remember
+Faff will say it's an AI. Some businesses will decline."
+`;
+
+exports[`briefCard: snapshots, one per verb > reschedule 1`] = `
+"What
+Reschedule at “Smile Dental, Clapham” (dentist), for David.
+Faff opens the call with: “Hi, I'm an AI assistant calling on behalf of a patient — is this Smile Dental in Clapham?”
+
+How
+By phone, because phone is the default.
+
+Contact
++442079460000, from your saved details.
+If this number turns out to be wrong, Faff may switch to one other number it can verify from the business's own site, the NHS directory or your saved details.
+
+Service
+Routine check-up and hygienist.
+About 40 minutes.
+
+Existing appointment
+Wed 14 Oct 2026 09:30 (ref 4417).
+
+Acceptable times
+Accepts weekdays 09:00–12:00, from Thu 1 Oct 2026 to Sat 31 Oct 2026. Takes the earliest it's offered. Avoids clashes with your calendar, with 30 minutes either side.
+Faff asks them to cancel your current appointment only once a new one is confirmed.
+
+What Faff may tell them
+Your first name (David) and your full name, your date of birth and your postcode, and only once they've confirmed who they are.
+
+Limits
+Up to 3 calls and 30 minutes on the phone in all, within 7 days. Then Faff stops and asks you.
+
+Remember
+Faff will say it's an AI. Some businesses will decline."
+`;
