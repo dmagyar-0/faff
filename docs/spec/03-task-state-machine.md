@@ -63,7 +63,10 @@ type Outcome =
   | { kind: "wrong_business" }
   | { kind: "refused_ai" }
   | { kind: "needs_user"; reason: string }       // e.g. they insist on speaking to the patient
-  | { kind: "no_contact"; detail: "no_answer" | "busy" | "voicemail" | "closed" };
+  | { kind: "no_contact"; detail: "no_answer" | "busy" | "voicemail" | "closed" }
+  | { kind: "dropped"; by: "callee" | "provider" | "watchdog" };  // system only (M1-Q6)
 ```
+
+`dropped` is never sent by the agent. The worker records it when a call ends without `end_call`: the callee hung up, the provider failed, or the watchdog cut the call at the minute limit. It is treated as `no_contact` for redials, but kept as itself so it's visible (M1-Q6). The zod schema is `Outcome` in `packages/core/src/outcome.ts`.
 
 `disclosedFields` is checked against the `reveal_profile_field` log for that call. If they don't match, the call is flagged for review.

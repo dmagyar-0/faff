@@ -11,14 +11,23 @@ import tseslint from "typescript-eslint";
  * randomness, environment or database (implementation plan §2.1, M0 plan §4). Time and IDs
  * are passed in as arguments. Tests are exempt.
  */
-const corePurity = {
+const temporalOnlyInTime = {
+  name: "temporal-polyfill",
+  message:
+    "Import Temporal from ./time (M1 plan §2), so moving to native Temporal is a one-line change.",
+};
+
+const corePurity = (allowTemporal = false) => ({
   "no-restricted-imports": [
     "error",
     {
-      paths: builtinModules.map((name) => ({
-        name,
-        message: "packages/core has no I/O. Pass data in as arguments.",
-      })),
+      paths: [
+        ...builtinModules.map((name) => ({
+          name,
+          message: "packages/core has no I/O. Pass data in as arguments.",
+        })),
+        ...(allowTemporal ? [] : [temporalOnlyInTime]),
+      ],
       patterns: [
         {
           group: ["node:*"],
@@ -78,7 +87,7 @@ const corePurity = {
       message: "No dynamic imports in packages/core.",
     },
   ],
-};
+});
 
 export default defineConfig(
   {
@@ -92,8 +101,12 @@ export default defineConfig(
   },
   {
     files: ["packages/core/src/**/*.ts"],
-    ignores: ["**/*.test.ts"],
-    rules: corePurity,
+    ignores: ["**/*.test.ts", "packages/core/src/time.ts"],
+    rules: corePurity(),
+  },
+  {
+    files: ["packages/core/src/time.ts"],
+    rules: corePurity(true),
   },
   prettier,
 );

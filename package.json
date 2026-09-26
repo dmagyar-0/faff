@@ -16,6 +16,8 @@
     "test:coverage": "vitest run --coverage",
     "deps": "depcruise packages apps evals",
     "rails": "node tooling/rails-selftest.mjs",
+    "schema:write": "tsx tooling/brief-schema.ts --write",
+    "schema:check": "tsx tooling/brief-schema.ts --check",
     "db:start": "supabase start --workdir packages/db",
     "db:stop": "supabase stop --workdir packages/db",
     "db:reset": "supabase db reset --workdir packages/db",
@@ -23,7 +25,7 @@
     "db:types": "supabase gen types typescript --local --workdir packages/db > packages/db/src/types.gen.ts && prettier --write --log-level warn packages/db/src/types.gen.ts",
     "db:rails": "node tooling/db-rails-selftest.mjs",
     "build": "pnpm -r --if-present build",
-    "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm deps && pnpm test && pnpm rails"
+    "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm deps && pnpm schema:check && pnpm test && pnpm rails"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -35,6 +37,7 @@
     "globals": "17.12.0",
     "prettier": "3.9.9",
     "supabase": "2.117.0",
+    "tsx": "4.23.15",
     "typescript": "6.0.3",
     "typescript-eslint": "8.70.1",
     "vitest": "5.0.1"

@@ -31,7 +31,7 @@ Append-only (I-5). There are no UPDATE/DELETE grants, and a `BEFORE UPDATE OR DE
 | id | bigint identity | monotonic |
 | business_id | uuid | |
 | kind | enum | `phone_number`, `email_address`, `prefers_email`, `ivr_path`, `opening_hours`, `number_wrong`, `reached_ok`, `hold_minutes`, `refused_ai`, `accepted_ai`, `booking_lead_time`, `email_reply_latency` |
-| value | jsonb | shape per kind, validated by zod |
+| value | jsonb | shape per kind, validated by zod (`packages/core/src/observations.ts`). No shape has a free-text field (D10) |
 | observed_at | timestamptz | when it was true |
 | source_kind | enum | `call`, `email`, `web_extract`, `user_report` |
 | source_ref | text | call_id / email message_id / URL |
@@ -54,7 +54,7 @@ Written only by `deriveBusinessProfile(observations)`, a **deterministic functio
 ## Core tables
 
 ### `businesses`
-`id, display_name, address, postcode, country ('GB'), locale ('en-GB'), created_at`. Identity only. Contact details live in observations.
+`id, display_name, kind, address, postcode, country ('GB'), locale ('en-GB'), created_at`. Identity only. Contact details live in observations. `kind` is the Brief's `business.kind` (G19), which picks the opener's noun.
 
 ### `profile_fields` — see [05](05-onboarding-and-profile.md)
 `user_id, field (enum), value (encrypted), disclose_by_default bool, updated_at`. PK `(user_id, field)`.

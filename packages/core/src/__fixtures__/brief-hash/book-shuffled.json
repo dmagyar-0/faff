@@ -1,0 +1,79 @@
+{
+  "about": "book-full with every object's keys reversed and integers written as 1.0, 30.0 and 24.0. Same hash as book-full.",
+  "hash": "sha256:6b93efc9b2be459b9c9766f100cfaacdc5a9ba649c13c5a28f93daf9200d1b88",
+  "brief": {
+    "notesForAgent": "Prefers mornings 🌅 — ask for the hygienist too",
+    "limits": {
+      "maxLifetime": "P7D",
+      "maxCallMinutes": 30.0,
+      "maxDialAttempts": 3
+    },
+    "disclosure": {
+      "allowedFields": ["full_name", "date_of_birth"]
+    },
+    "acceptance": {
+      "minNoticeHours": 24.0,
+      "preference": {
+        "closestTo": "2026-10-06T17:00:00+01:00"
+      },
+      "bufferMinutes": 30.0,
+      "avoidCalendarConflicts": true,
+      "windows": [
+        {
+          "end": "2026-10-05T12:00:00+01:00",
+          "start": "2026-10-05T09:00:00+01:00",
+          "kind": "absolute"
+        },
+        {
+          "between": {
+            "end": "2026-10-31",
+            "start": "2026-10-01"
+          },
+          "to": "18:30",
+          "from": "16:00",
+          "days": ["tue", "thu"],
+          "kind": "recurring"
+        }
+      ]
+    },
+    "service": {
+      "durationMinutes": 30,
+      "description": "routine check-up"
+    },
+    "channel": {
+      "emailFallbackToPhoneAfter": {
+        "workingDays": 2
+      },
+      "reason": "default_phone",
+      "chosen": "phone"
+    },
+    "forPerson": {
+      "firstName": "Zoë"
+    },
+    "business": {
+      "contactPolicy": {
+        "autoSwitchOnWrongNumber": true
+      },
+      "contact": {
+        "evidence": {
+          "fetchedAt": "2026-09-20T10:00:00Z",
+          "quote": "Bookings: 020 7946 0000",
+          "url": "https://lukaszdental.example/contact"
+        },
+        "phone": "+442079460000",
+        "source": "web_extract"
+      },
+      "address": "1 High St, London W5 5AA",
+      "kind": "dentist",
+      "displayName": "Gabinet Łukasz Dental, Ealing",
+      "businessId": "7a1e4c2b-3d5f-4a6b-8c9d-0e1f2a3b4c21"
+    },
+    "verb": "book",
+    "timezone": "Europe/London",
+    "locale": "en-GB",
+    "userId": "5d2c8e0e-1a6b-4b1f-8f7e-9c3b2a1d0e11",
+    "revision": 1.0,
+    "briefId": "0b6f3a52-6c1e-4f59-9a55-2f0d5d1c7a01",
+    "schema": "faff.brief/v1"
+  }
+}

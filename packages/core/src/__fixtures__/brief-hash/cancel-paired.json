@@ -1,0 +1,63 @@
+{
+  "about": "A paired cancel Brief, fully specified.",
+  "hash": "sha256:4d7d12ebba1c4618ff670613e0d816afd390ab9e46eaaf603e1f36f978dfdebc",
+  "brief": {
+    "schema": "faff.brief/v1",
+    "briefId": "0b6f3a52-6c1e-4f59-9a55-2f0d5d1c7a01",
+    "revision": 1,
+    "userId": "5d2c8e0e-1a6b-4b1f-8f7e-9c3b2a1d0e11",
+    "locale": "en-GB",
+    "timezone": "Europe/London",
+    "verb": "cancel",
+    "business": {
+      "businessId": "7a1e4c2b-3d5f-4a6b-8c9d-0e1f2a3b4c21",
+      "displayName": "Gabinet Łukasz Dental, Ealing",
+      "kind": "dentist",
+      "address": "1 High St, London W5 5AA",
+      "contact": {
+        "source": "web_extract",
+        "phone": "+442079460000",
+        "evidence": {
+          "url": "https://lukaszdental.example/contact",
+          "quote": "Bookings: 020 7946 0000",
+          "fetchedAt": "2026-09-20T10:00:00Z"
+        }
+      },
+      "contactPolicy": {
+        "autoSwitchOnWrongNumber": true
+      }
+    },
+    "forPerson": {
+      "firstName": "Zoë"
+    },
+    "channel": {
+      "chosen": "phone",
+      "reason": "default_phone",
+      "emailFallbackToPhoneAfter": {
+        "workingDays": 2
+      }
+    },
+    "service": {
+      "description": "routine check-up",
+      "durationMinutes": 30
+    },
+    "disclosure": {
+      "allowedFields": ["full_name", "date_of_birth"]
+    },
+    "limits": {
+      "maxDialAttempts": 3,
+      "maxCallMinutes": 30,
+      "maxLifetime": "P7D"
+    },
+    "notesForAgent": "Prefers mornings 🌅 — ask for the hygienist too",
+    "existingAppointment": {
+      "appointmentId": "9e8d7c6b-5a4f-4e3d-8c2b-1a0f9e8d7c31",
+      "startsAt": "2026-10-14T09:30:00+01:00",
+      "reference": "4417"
+    },
+    "cancel": {
+      "mode": "paired",
+      "pairedWithBriefId": "0b6f3a52-6c1e-4f59-9a55-2f0d5d1c7a02"
+    }
+  }
+}

@@ -60,7 +60,7 @@ docs/
 
 ## The tool server is the enforcement point
 
-**[derived D3]** Invariants that live only in a prompt aren't enforced, so the executing agent works through tools, and the tools enforce the rules. The prompt contains the Brief's *intent*: the verb, the service, the business name, the acceptance rule in words, and the user's first name for the identity step. It does **not** contain disclosable profile values.
+**[derived D3]** Invariants that live only in a prompt aren't enforced, so the executing agent works through tools, and the tools enforce the rules. The prompt contains the Brief's *intent*: the verb, the service, the business name, the acceptance rule in words, and the user's first name for the identity step (from the Brief's `forPerson.firstName`, G22). It does **not** contain disclosable profile values.
 
 | Tool | Purpose | Server-side guard |
 |---|---|---|

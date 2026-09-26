@@ -1,0 +1,455 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "schema": { "type": "string", "const": "faff.brief/v1" },
+        "briefId": { "$ref": "#/$defs/Uuid" },
+        "revision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "userId": { "$ref": "#/$defs/Uuid" },
+        "locale": { "type": "string", "enum": ["en-GB"] },
+        "timezone": { "type": "string", "enum": ["Europe/London"] },
+        "business": { "$ref": "#/$defs/Business" },
+        "forPerson": {
+          "type": "object",
+          "properties": { "firstName": { "type": "string", "minLength": 1, "maxLength": 50 } },
+          "required": ["firstName"],
+          "additionalProperties": false
+        },
+        "channel": { "$ref": "#/$defs/Channel" },
+        "service": { "$ref": "#/$defs/Service" },
+        "disclosure": {
+          "type": "object",
+          "properties": {
+            "allowedFields": {
+              "maxItems": 9,
+              "type": "array",
+              "items": { "$ref": "#/$defs/ProfileField" }
+            }
+          },
+          "required": ["allowedFields"],
+          "additionalProperties": false
+        },
+        "limits": { "default": {}, "$ref": "#/$defs/Limits" },
+        "notesForAgent": { "type": "string", "maxLength": 2000 },
+        "verb": { "type": "string", "const": "book" },
+        "acceptance": { "$ref": "#/$defs/AcceptanceRule" }
+      },
+      "required": [
+        "schema",
+        "briefId",
+        "revision",
+        "userId",
+        "locale",
+        "timezone",
+        "business",
+        "forPerson",
+        "channel",
+        "service",
+        "disclosure",
+        "verb",
+        "acceptance"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schema": { "type": "string", "const": "faff.brief/v1" },
+        "briefId": { "$ref": "#/$defs/Uuid" },
+        "revision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "userId": { "$ref": "#/$defs/Uuid" },
+        "locale": { "type": "string", "enum": ["en-GB"] },
+        "timezone": { "type": "string", "enum": ["Europe/London"] },
+        "business": { "$ref": "#/$defs/Business" },
+        "forPerson": {
+          "type": "object",
+          "properties": { "firstName": { "type": "string", "minLength": 1, "maxLength": 50 } },
+          "required": ["firstName"],
+          "additionalProperties": false
+        },
+        "channel": { "$ref": "#/$defs/Channel" },
+        "service": { "$ref": "#/$defs/Service" },
+        "disclosure": {
+          "type": "object",
+          "properties": {
+            "allowedFields": {
+              "maxItems": 9,
+              "type": "array",
+              "items": { "$ref": "#/$defs/ProfileField" }
+            }
+          },
+          "required": ["allowedFields"],
+          "additionalProperties": false
+        },
+        "limits": { "default": {}, "$ref": "#/$defs/Limits" },
+        "notesForAgent": { "type": "string", "maxLength": 2000 },
+        "verb": { "type": "string", "const": "reschedule" },
+        "existingAppointment": { "$ref": "#/$defs/AppointmentRef" },
+        "acceptance": { "$ref": "#/$defs/AcceptanceRule" }
+      },
+      "required": [
+        "schema",
+        "briefId",
+        "revision",
+        "userId",
+        "locale",
+        "timezone",
+        "business",
+        "forPerson",
+        "channel",
+        "service",
+        "disclosure",
+        "verb",
+        "existingAppointment",
+        "acceptance"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schema": { "type": "string", "const": "faff.brief/v1" },
+        "briefId": { "$ref": "#/$defs/Uuid" },
+        "revision": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "userId": { "$ref": "#/$defs/Uuid" },
+        "locale": { "type": "string", "enum": ["en-GB"] },
+        "timezone": { "type": "string", "enum": ["Europe/London"] },
+        "business": { "$ref": "#/$defs/Business" },
+        "forPerson": {
+          "type": "object",
+          "properties": { "firstName": { "type": "string", "minLength": 1, "maxLength": 50 } },
+          "required": ["firstName"],
+          "additionalProperties": false
+        },
+        "channel": { "$ref": "#/$defs/Channel" },
+        "service": { "$ref": "#/$defs/Service" },
+        "disclosure": {
+          "type": "object",
+          "properties": {
+            "allowedFields": {
+              "maxItems": 9,
+              "type": "array",
+              "items": { "$ref": "#/$defs/ProfileField" }
+            }
+          },
+          "required": ["allowedFields"],
+          "additionalProperties": false
+        },
+        "limits": { "default": {}, "$ref": "#/$defs/Limits" },
+        "notesForAgent": { "type": "string", "maxLength": 2000 },
+        "verb": { "type": "string", "const": "cancel" },
+        "existingAppointment": { "$ref": "#/$defs/AppointmentRef" },
+        "cancel": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": { "mode": { "type": "string", "const": "standalone" } },
+              "required": ["mode"],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "mode": { "type": "string", "const": "paired" },
+                "pairedWithBriefId": { "$ref": "#/$defs/Uuid" }
+              },
+              "required": ["mode", "pairedWithBriefId"],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "schema",
+        "briefId",
+        "revision",
+        "userId",
+        "locale",
+        "timezone",
+        "business",
+        "forPerson",
+        "channel",
+        "service",
+        "disclosure",
+        "verb",
+        "existingAppointment",
+        "cancel"
+      ],
+      "additionalProperties": false
+    }
+  ],
+  "$id": "https://faff.app/schemas/brief.v1.json",
+  "title": "faff.brief/v1",
+  "description": "The Faff Task Brief (docs/spec/02-task-brief.md). Every datetime is RFC 3339 with an offset. Rules this schema can't express, which the reference validator (packages/core BriefV1) also enforces: channel.chosen = \"phone\" needs business.contact.phone; \"email\" needs business.contact.email. business.contact needs a phone number or an email address. An absolute window must end after it starts, compared as instants. A recurring window lists each weekday once, has from ≠ to, and between.start ≤ between.end. When service.practitioner and acceptance.practitioner.mustBe are both set they must name the same person (case, titles and punctuation ignored). cancel.pairedWithBriefId must differ from briefId. disclosure.allowedFields lists each field once. Every string is well-formed Unicode (no lone surrogates), so the Brief has a canonical form.",
+  "$defs": {
+    "Uuid": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "Business": {
+      "type": "object",
+      "properties": {
+        "businessId": { "$ref": "#/$defs/Uuid" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "dentist",
+            "gp",
+            "optician",
+            "physio",
+            "clinic",
+            "vet",
+            "hair_and_beauty",
+            "garage",
+            "other"
+          ]
+        },
+        "address": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "contact": { "$ref": "#/$defs/ResolvedContact" },
+        "contactPolicy": {
+          "default": {},
+          "type": "object",
+          "properties": { "autoSwitchOnWrongNumber": { "default": true, "type": "boolean" } },
+          "additionalProperties": false
+        }
+      },
+      "required": ["businessId", "displayName", "kind", "contact"],
+      "additionalProperties": false
+    },
+    "ResolvedContact": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "source": { "type": "string", "const": "user_memory" },
+            "phone": { "$ref": "#/$defs/E164" },
+            "email": { "$ref": "#/$defs/Email" },
+            "lastReachedOkAt": { "$ref": "#/$defs/DateTime" }
+          },
+          "required": ["source"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "source": { "type": "string", "const": "observations" },
+            "phone": { "$ref": "#/$defs/E164" },
+            "email": { "$ref": "#/$defs/Email" },
+            "lastReachedOkAt": { "$ref": "#/$defs/DateTime" }
+          },
+          "required": ["source"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "source": { "type": "string", "const": "web_extract" },
+            "phone": { "$ref": "#/$defs/E164" },
+            "email": { "$ref": "#/$defs/Email" },
+            "lastReachedOkAt": { "$ref": "#/$defs/DateTime" },
+            "evidence": { "$ref": "#/$defs/Evidence" }
+          },
+          "required": ["source", "evidence"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "E164": {
+      "type": "string",
+      "pattern": "^\\+[1-9]\\d{6,14}$",
+      "description": "E.164 phone number, e.g. +442079460000"
+    },
+    "Email": {
+      "type": "string",
+      "maxLength": 254,
+      "format": "email",
+      "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+    },
+    "DateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+      "description": "RFC 3339 datetime with seconds and an offset (Z or ±hh:mm)"
+    },
+    "Evidence": {
+      "type": "object",
+      "properties": {
+        "url": { "type": "string", "maxLength": 2048, "format": "uri" },
+        "quote": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "fetchedAt": { "$ref": "#/$defs/DateTime" }
+      },
+      "required": ["url", "quote", "fetchedAt"],
+      "additionalProperties": false
+    },
+    "Channel": {
+      "type": "object",
+      "properties": {
+        "chosen": { "type": "string", "enum": ["phone", "email"] },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "user_memory",
+            "prefers_email_observed",
+            "no_phone_known",
+            "default_phone",
+            "user_override"
+          ]
+        },
+        "emailFallbackToPhoneAfter": {
+          "default": { "workingDays": 2 },
+          "type": "object",
+          "properties": { "workingDays": { "type": "integer", "minimum": 1, "maximum": 20 } },
+          "required": ["workingDays"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["chosen", "reason"],
+      "additionalProperties": false
+    },
+    "Service": {
+      "type": "object",
+      "properties": {
+        "description": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "durationMinutes": { "type": "integer", "minimum": 1, "maximum": 480 },
+        "practitioner": {
+          "anyOf": [{ "type": "string", "minLength": 1, "maxLength": 100 }, { "type": "null" }]
+        },
+        "isExistingCustomer": { "type": "boolean" }
+      },
+      "required": ["description"],
+      "additionalProperties": false
+    },
+    "ProfileField": {
+      "type": "string",
+      "enum": [
+        "full_name",
+        "preferred_name",
+        "date_of_birth",
+        "postcode",
+        "address_line",
+        "contact_phone",
+        "contact_email",
+        "existing_patient",
+        "nhs_number"
+      ]
+    },
+    "Limits": {
+      "type": "object",
+      "properties": {
+        "maxDialAttempts": { "default": 3, "type": "integer", "minimum": 1, "maximum": 20 },
+        "maxCallMinutes": { "default": 30, "type": "integer", "minimum": 1, "maximum": 600 },
+        "maxLifetime": { "default": "P7D", "$ref": "#/$defs/Duration" }
+      },
+      "additionalProperties": false
+    },
+    "Duration": {
+      "type": "string",
+      "pattern": "^P(?=\\d|T\\d)(?:\\d+D)?(?:T(?=\\d)(?:\\d+H)?(?:\\d+M)?(?:\\d+S)?)?$",
+      "description": "ISO 8601 duration using D, H, M and S only, e.g. P7D or PT90M"
+    },
+    "AcceptanceRule": {
+      "type": "object",
+      "properties": {
+        "windows": {
+          "minItems": 1,
+          "maxItems": 50,
+          "type": "array",
+          "items": { "$ref": "#/$defs/Window" }
+        },
+        "avoidCalendarConflicts": { "type": "boolean" },
+        "bufferMinutes": { "default": 30, "type": "integer", "minimum": 0, "maximum": 1440 },
+        "preference": {
+          "anyOf": [
+            { "type": "string", "const": "earliest" },
+            { "type": "string", "const": "latest" },
+            {
+              "type": "object",
+              "properties": { "closestTo": { "$ref": "#/$defs/DateTime" } },
+              "required": ["closestTo"],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "practitioner": {
+          "type": "object",
+          "properties": {
+            "mustBe": { "type": "string", "minLength": 1, "maxLength": 100 },
+            "avoid": {
+              "maxItems": 20,
+              "type": "array",
+              "items": { "type": "string", "minLength": 1, "maxLength": 100 }
+            }
+          },
+          "additionalProperties": false
+        },
+        "minNoticeHours": { "type": "number", "minimum": 0, "maximum": 8760 }
+      },
+      "required": ["windows", "avoidCalendarConflicts", "preference"],
+      "additionalProperties": false
+    },
+    "Window": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "type": "string", "const": "absolute" },
+            "start": { "$ref": "#/$defs/DateTime" },
+            "end": { "$ref": "#/$defs/DateTime" }
+          },
+          "required": ["kind", "start", "end"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "type": "string", "const": "recurring" },
+            "days": {
+              "minItems": 1,
+              "maxItems": 7,
+              "type": "array",
+              "items": { "$ref": "#/$defs/Weekday" }
+            },
+            "from": { "$ref": "#/$defs/WallTime" },
+            "to": { "$ref": "#/$defs/WallTime" },
+            "between": {
+              "type": "object",
+              "properties": {
+                "start": { "$ref": "#/$defs/LocalDate" },
+                "end": { "$ref": "#/$defs/LocalDate" }
+              },
+              "required": ["start", "end"],
+              "additionalProperties": false
+            }
+          },
+          "required": ["kind", "days", "from", "to", "between"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "Weekday": { "type": "string", "enum": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] },
+    "WallTime": {
+      "type": "string",
+      "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$",
+      "description": "Wall-clock time HH:MM (24-hour) in the Brief's timezone"
+    },
+    "LocalDate": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+    },
+    "AppointmentRef": {
+      "type": "object",
+      "properties": {
+        "appointmentId": { "$ref": "#/$defs/Uuid" },
+        "startsAt": { "$ref": "#/$defs/DateTime" },
+        "reference": { "type": "string", "minLength": 1, "maxLength": 64 }
+      },
+      "required": ["appointmentId", "startsAt"],
+      "additionalProperties": false
+    }
+  }
+}

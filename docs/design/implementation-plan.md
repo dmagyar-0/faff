@@ -270,6 +270,22 @@ Found while mapping the spec to code. Each needs a decision. The **proposed defa
 | **G11** | `notesForAgent` is free text from the chat agent. Prompt injection from the *user's* chat into the phone prompt is covered by the scenario suite, but the chat agent itself reads web pages (lookup) | 02, 08 | The lookup extractor runs as a **separate agent** with no Brief-writing tools. Its only output is typed candidates, so a malicious page can't write into a Brief |
 | **G12** | EU AI Act and Irish businesses: the spec mentions extraterritorial reach, but v1 is UK numbers only | 00, 12 | `placeCall` rejects non-`+44` destinations in v1 (a one-line guard). It widens with the locale roadmap |
 
+G13 onwards were found while planning M1 ([M1 §5](milestones/M1-core-domain.md#5-gaps-found-while-planning)). **Decided (owner, 2026-09-24):** M1 was accepted with every default, which also confirms G1, G3, G4, G5 (with G23's split) and G7 above (M1-Q1). Each default is recorded in the spec by the M1 PR that implements it.
+
+| # | Issue | Where | Decided default |
+|---|---|---|---|
+| **G13** | `emailFallbackToPhoneAfter` defaults to `P2D` in 02, but 07 says 2 **working** days | 02 vs 07 | `{ workingDays: number }`, default 2; weekends and England & Wales bank holidays excluded (M1-Q3, M1-Q7) |
+| **G14** | `no_availability`, `needs_user` and `no_contact(closed)` have no transition row; the table's `hung_up` isn't an outcome kind | 03 | Rows per M1 §3.3; `hung_up` becomes the system `dropped` outcome (M1-Q6) |
+| **G15** | No way out of `awaiting_cancel_confirmation` if the user never confirms | 03 | Lifetime applies from approval; on expiry → `withdrawn`, with an inbox note |
+| **G16** | `reject` vs `outside_rule` from `evaluateAcceptance` isn't defined | 06 | `reject` = not a real offer (invalid, in the past, inconsistent date); `outside_rule` = a real offer the rule excludes (M1-Q4) |
+| **G17** | `Window.recurring.between` has no type | 06 | Inclusive local dates (M1-Q5) |
+| **G18** | Practitioner appears in `service` and in `acceptance` | 02, 06 | `acceptance` decides; `service.practitioner` is who the agent asks for; a Brief where they disagree is rejected |
+| **G19** | The opener's noun needs a business type | 04, 08 | `business.kind` on the Brief and `businesses.kind` (M1-Q7) |
+| **G20** | Q39 condition 2 needs the business's own domain | 04, 08 | `businesses.website` in M2; `isFirstPartySource` takes it as input |
+| **G21** | Profile values typed into `notesForAgent` bypass `reveal_profile_field` | 02, 05 | `rejectProfileValues(text, values)` at draft time, alongside `rejectSecrets` (M1-Q8) |
+| **G22** | The prompt needs the user's first name, but the Brief has no such field | 01, 02 | `forPerson: { firstName }` on the Brief (M1-Q7) |
+| **G23** | Spec 03 fails an unanswered lifetime escalation after 48h; G5 proposes 7 days | 03 | 48h when the reason is `limit_reached`, 7 days otherwise, reminder at 48h; expiry → `failed` (`user_unresponsive`) (M1-Q2) |
+
 ---
 
 ## 6. Proposed decisions (summary)
