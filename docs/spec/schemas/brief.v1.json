@@ -13,7 +13,13 @@
         "business": { "$ref": "#/$defs/Business" },
         "forPerson": {
           "type": "object",
-          "properties": { "firstName": { "type": "string", "minLength": 1, "maxLength": 50 } },
+          "properties": {
+            "firstName": {
+              "type": "string",
+              "maxLength": 50,
+              "pattern": "^\\p{L}[\\p{L}\\p{M} '’.-]*$"
+            }
+          },
           "required": ["firstName"],
           "additionalProperties": false
         },
@@ -65,7 +71,13 @@
         "business": { "$ref": "#/$defs/Business" },
         "forPerson": {
           "type": "object",
-          "properties": { "firstName": { "type": "string", "minLength": 1, "maxLength": 50 } },
+          "properties": {
+            "firstName": {
+              "type": "string",
+              "maxLength": 50,
+              "pattern": "^\\p{L}[\\p{L}\\p{M} '’.-]*$"
+            }
+          },
           "required": ["firstName"],
           "additionalProperties": false
         },
@@ -119,7 +131,13 @@
         "business": { "$ref": "#/$defs/Business" },
         "forPerson": {
           "type": "object",
-          "properties": { "firstName": { "type": "string", "minLength": 1, "maxLength": 50 } },
+          "properties": {
+            "firstName": {
+              "type": "string",
+              "maxLength": 50,
+              "pattern": "^\\p{L}[\\p{L}\\p{M} '’.-]*$"
+            }
+          },
           "required": ["firstName"],
           "additionalProperties": false
         },
@@ -182,7 +200,7 @@
   ],
   "$id": "https://faff.app/schemas/brief.v1.json",
   "title": "faff.brief/v1",
-  "description": "The Faff Task Brief (docs/spec/02-task-brief.md). Every datetime is RFC 3339 with an offset. Rules this schema can't express, which the reference validator (packages/core BriefV1) also enforces: channel.chosen = \"phone\" needs business.contact.phone; \"email\" needs business.contact.email. business.contact needs a phone number or an email address. An absolute window must end after it starts, compared as instants. A recurring window lists each weekday once, has from ≠ to, and between.start ≤ between.end. When service.practitioner and acceptance.practitioner.mustBe are both set they must name the same person (case, titles and punctuation ignored). service.practitioner must not be one of acceptance.practitioner.avoid. A practitioner name must still name someone once titles and punctuation are removed. limits.maxLifetime is between PT1H and P30D. cancel.pairedWithBriefId must differ from briefId. Every UUID is lowercase, so an id has one spelling. A datetime has at most 9 fractional-second digits. disclosure.allowedFields lists each field once. Every string is well-formed Unicode (no lone surrogates), so the Brief has a canonical form.",
+  "description": "The Faff Task Brief (docs/spec/02-task-brief.md). Every datetime is RFC 3339 with an offset. Rules this schema can't express, which the reference validator (packages/core BriefV1) also enforces: channel.chosen = \"phone\" needs business.contact.phone; \"email\" needs business.contact.email. business.contact needs a phone number or an email address. An absolute window must end after it starts, compared as instants. A recurring window lists each weekday once, has from ≠ to, and between.start ≤ between.end. When service.practitioner and acceptance.practitioner.mustBe are both set they must name the same person (case, titles and punctuation ignored). service.practitioner must not be one of acceptance.practitioner.avoid, and neither may acceptance.practitioner.mustBe. A practitioner name must still name someone once titles and punctuation are removed. limits.maxLifetime is between PT1H and P30D. cancel.pairedWithBriefId must differ from briefId. Every UUID is lowercase, so an id has one spelling. A datetime has at most 9 fractional-second digits. disclosure.allowedFields lists each field once. Every string is well-formed Unicode (no lone surrogates), so the Brief has a canonical form.",
   "$defs": {
     "Uuid": {
       "type": "string",
@@ -193,7 +211,12 @@
       "type": "object",
       "properties": {
         "businessId": { "$ref": "#/$defs/Uuid" },
-        "displayName": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "^(?![\\s\\S]*\\p{Cc})[\\s\\S]*\\S[\\s\\S]*$"
+        },
         "kind": {
           "type": "string",
           "enum": [

@@ -31,7 +31,7 @@ Append-only (I-5). There are no UPDATE/DELETE grants, and a `BEFORE UPDATE OR DE
 | id | bigint identity | monotonic |
 | business_id | uuid | |
 | kind | enum | `phone_number`, `email_address`, `prefers_email`, `ivr_path`, `opening_hours`, `number_wrong`, `reached_ok`, `hold_minutes`, `refused_ai`, `accepted_ai`, `booking_lead_time`, `email_reply_latency` |
-| value | jsonb | shape per kind, validated by zod (`packages/core/src/observations.ts`). No shape has a free-text field (D10) |
+| value | jsonb | shape per kind, validated by zod (`packages/core/src/observations.ts`). No shape has a free-text field (D10); an IVR spoken step is at most two short lowercase words ("new patients") |
 | observed_at | timestamptz | when it was true |
 | source_kind | enum | `call`, `email`, `web_extract`, `user_report` |
 | source_ref | text | call_id / email message_id / URL |

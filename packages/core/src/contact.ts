@@ -16,8 +16,9 @@ export const Evidence = z
     url: z
       .url({ protocol: /^https?$/ })
       .max(2048)
-      // Repeated as a pattern so the exported JSON Schema carries the http(s) rule too.
-      .regex(/^https?:\/\//i),
+      // Repeated as a pattern so the exported JSON Schema carries the http(s) rule too. Lowercase
+      // scheme only: a JSON Schema pattern has no case-insensitive flag.
+      .regex(/^https?:\/\//),
     quote: z.string().min(1).max(1000),
     fetchedAt: IsoDateTime,
   })

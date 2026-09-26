@@ -104,6 +104,8 @@ describe("observation value schemas (D10: no free text)", () => {
       false,
     );
     expect(ivr.safeParse({ steps: [{ say: "Bookings" }] }).success).toBe(false);
+    expect(ivr.safeParse({ steps: [{ say: "new patients" }] }).success).toBe(true);
+    expect(ivr.safeParse({ steps: [{ say: "patient david magyar" }] }).success).toBe(false);
   });
 });
 

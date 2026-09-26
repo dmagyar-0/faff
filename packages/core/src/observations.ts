@@ -37,11 +37,13 @@ export const IvrStep = z.union([
       .max(10)
       .regex(/^[0-9*#]{1,10}$/),
   }),
+  // A menu word or two ("bookings", "new patients"), not a phrase: two short words can't carry a
+  // name and a date of birth into the shared tier.
   z.strictObject({
     say: z
       .string()
-      .regex(/^[a-z]+(?: [a-z]+){0,3}$/)
-      .max(40),
+      .regex(/^[a-z]{1,15}(?: [a-z]{1,15})?$/)
+      .max(31),
   }),
 ]);
 export type IvrStep = z.infer<typeof IvrStep>;

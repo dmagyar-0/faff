@@ -244,12 +244,18 @@ for (const line of ["*.md", "/docs/", "claims.tsx"]) {
 const schemaCases = [];
 {
   const committed = fs.readFileSync(path.join(root, "docs/spec/schemas/brief.v1.json"), "utf8");
-  const drifted = JSON.parse(committed);
-  drifted.$defs.Limits.properties.maxDialAttempts.default = 99;
+  const drifted = committed.replace(
+    '"maxDialAttempts": { "default": 3,',
+    '"maxDialAttempts": { "default": 99,',
+  );
+  if (drifted === committed) {
+    failures.push("schema drift: the maxDialAttempts default the drift case edits wasn't found");
+  }
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "faff-rails-schema-"));
   const cases = {
     "the committed schema": [committed, 0],
-    "a drifted default": [`${JSON.stringify(drifted, null, 2)}\n`, 1],
+    // Formatted as the committed file is, so the default is the only difference.
+    "a drifted default": [drifted, 1],
     "a whitespace-only change": [committed.replace(/\n$/, ""), 1],
     "a missing file": [undefined, 1],
   };

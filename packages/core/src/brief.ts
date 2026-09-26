@@ -80,10 +80,27 @@ export const Limits = z
   .meta({ id: "Limits" });
 export type Limits = z.infer<typeof Limits>;
 
+/**
+ * A first name as it would be said aloud. It goes into the phone prompt, so it is letters with
+ * the odd space, apostrophe, hyphen or full stop: no newlines, digits or other structure.
+ */
+const PersonName = z
+  .string()
+  .max(50)
+  .regex(/^\p{L}[\p{L}\p{M} '’.-]*$/u, "A first name: letters, spaces, ' ’ . and - only");
+
+/** A single line of display text: no control characters, not blank. */
+const DisplayLine = (max: number) =>
+  z
+    .string()
+    .min(1)
+    .max(max)
+    .regex(/^(?![\s\S]*\p{Cc})[\s\S]*\S[\s\S]*$/u, "One line of text, not blank");
+
 const Business = z
   .strictObject({
     businessId: Uuid,
-    displayName: z.string().min(1).max(200),
+    displayName: DisplayLine(200),
     kind: BusinessKind,
     address: z.string().min(1).max(500).optional(),
     contact: ResolvedContact,
@@ -134,7 +151,7 @@ const common = {
   timezone: z.enum(["Europe/London"]),
   business: Business,
   /** The person the task is for, pinned at draft time for the identity step (G22, M1-Q7). */
-  forPerson: z.strictObject({ firstName: z.string().min(1).max(50) }),
+  forPerson: z.strictObject({ firstName: PersonName }),
   channel: Channel,
   service: Service,
   disclosure: z.strictObject({
@@ -180,7 +197,7 @@ export const BRIEF_REFINEMENTS = [
   "An absolute window must end after it starts, compared as instants.",
   "A recurring window lists each weekday once, has from ≠ to, and between.start ≤ between.end.",
   "When service.practitioner and acceptance.practitioner.mustBe are both set they must name the same person (case, titles and punctuation ignored).",
-  "service.practitioner must not be one of acceptance.practitioner.avoid.",
+  "service.practitioner must not be one of acceptance.practitioner.avoid, and neither may acceptance.practitioner.mustBe.",
   "A practitioner name must still name someone once titles and punctuation are removed.",
   "limits.maxLifetime is between PT1H and P30D.",
   "cancel.pairedWithBriefId must differ from briefId.",
@@ -239,6 +256,17 @@ const checkCrossFields = (b: BriefShape, ctx: z.RefinementCtx): void => {
       path: ["service", "practitioner"],
     });
   }
+  const rule = b.verb === "cancel" ? undefined : b.acceptance.practitioner;
+  if (
+    rule?.mustBe !== undefined &&
+    rule.avoid?.some((n) => samePractitioner(n, rule.mustBe ?? ""))
+  ) {
+    ctx.addIssue({
+      code: "custom",
+      message: "acceptance.practitioner.mustBe is also in avoid: nothing could be accepted",
+      path: ["acceptance", "practitioner", "avoid"],
+    });
+  }
   if (
     b.verb === "cancel" &&
     b.cancel.mode === "paired" &&
@@ -292,6 +320,12 @@ const issuesOf = (error: z.ZodError): BriefIssue[] =>
     message: issue.message,
   }));
 
+/** Describes an unknown `schema` value without coercing it: coercion can throw. */
+const unknownSchemaMessage = (schema: unknown): string =>
+  typeof schema === "string"
+    ? `Unknown schema: ${JSON.stringify(schema.slice(0, 64))}`
+    : `Unknown schema: expected a string, got ${schema === null ? "null" : typeof schema}`;
+
 /**
  * Parse anything claiming to be a Brief. Switches on `schema`, so a v2 (and its migration from
  * v1) can be added here without touching callers.
@@ -307,9 +341,7 @@ export const parseBrief = (
       return parsed.success ? ok(parsed.data) : err("invalid_brief", issuesOf(parsed.error));
     }
     default:
-      return err("unknown_schema", [
-        { path: "schema", message: `Unknown schema: ${String(schema)}` },
-      ]);
+      return err("unknown_schema", [{ path: "schema", message: unknownSchemaMessage(schema) }]);
   }
 };
 
