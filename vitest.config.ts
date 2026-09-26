@@ -24,8 +24,8 @@ export default defineConfig({
       reporter: ["text-summary", "json-summary"],
       thresholds: {
         // M1 PR 1.5: knowledge and contacts.
-        "packages/core/src/{citation,contact-switch}.ts": core(95),
-        "packages/core/src/{channel,identity-match,profile-derive,working-days}.ts": CORE_90,
+        "packages/core/src/{citation,contact-switch,working-days}.ts": core(95),
+        "packages/core/src/{channel,identity-match,profile-derive}.ts": CORE_90,
         // M1 PR 1.1: schemas and hashing.
         "packages/core/src/{acceptance-rule,brief,canonical,contact,observations,outcome}.ts":
           CORE_90,

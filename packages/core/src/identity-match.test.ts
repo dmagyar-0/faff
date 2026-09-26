@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { matchBusinessIdentity, nameSimilarity } from "./identity-match";
+import { compareNames, matchBusinessIdentity, sameWord } from "./identity-match";
 
 const smile = { displayName: "Smile Dental, Clapham", location: "Clapham" };
 
@@ -17,6 +17,10 @@ describe("matchBusinessIdentity (G9): speech-recognition-style mishearings", () 
     ["Pizza Palace", "mismatch"],
     ["Clapham Dental Care", "unclear"],
     ["hello?", "mismatch"],
+    // Different businesses that share a category word (review, PR 1.5): never a match.
+    ["Style Dental", "unclear"],
+    ["Smile Dental Balham", "unclear"],
+    ["Bright Dental", "unclear"],
     ["", "unclear"],
     ["the practice", "unclear"],
   ] as const)("%j → %s", (heard, verdict) => {
@@ -28,9 +32,9 @@ describe("matchBusinessIdentity (G9): speech-recognition-style mishearings", () 
     expect(matchBusinessIdentity({ name: "SDC" }, smile, ["SDC"])).toBe("match");
   });
 
-  it("a heard location has to agree too (a similar-sounding one is unclear, so the agent asks)", () => {
+  it("a heard location has to agree too", () => {
     expect(matchBusinessIdentity({ name: "Smile Dental", location: "Balham" }, smile)).toBe(
-      "unclear",
+      "mismatch",
     );
     expect(matchBusinessIdentity({ name: "Smile Dental", location: "Clapham" }, smile)).toBe(
       "match",
@@ -56,9 +60,28 @@ describe("matchBusinessIdentity (G9): speech-recognition-style mishearings", () 
     );
   });
 
-  it("similarity is 1 for the same name and 0 for nothing in common", () => {
-    expect(nameSimilarity("Smile Dental", "smile   DENTAL")).toBe(1);
-    expect(nameSimilarity("abc", "xyz")).toBe(0);
-    expect(nameSimilarity("", "")).toBe(0);
+  it.each([
+    ["Oak Dental", "Park Dental"],
+    ["Boots Pharmacy", "Roots Pharmacy"],
+    ["Bupa Dental Care Clapham", "Bupa Dental Care, Balham"],
+  ])("%j is not %j", (heard, displayName) => {
+    expect(matchBusinessIdentity({ name: heard }, { displayName })).not.toBe("match");
+  });
+
+  it("words: exact for short ones, one slip for longer ones with the same first letter", () => {
+    expect(sameWord("smiles", "smile")).toBe(true);
+    expect(sameWord("dentall", "dental")).toBe(true);
+    expect(sameWord("style", "smile")).toBe(false);
+    expect(sameWord("roots", "boots")).toBe(false);
+    expect(sameWord("oak", "oat")).toBe(false);
+    expect(sameWord("pharmacie", "pharmacy")).toBe(true);
+  });
+
+  it("compareNames", () => {
+    expect(compareNames("smile dent all", "Smile Dental")).toBe("match");
+    expect(compareNames("smile", "Smile Dental")).toBe("unclear");
+    expect(compareNames("smile dental clapham", "Smile Dental")).toBe("unclear");
+    expect(compareNames("pizza", "Smile Dental")).toBe("mismatch");
+    expect(compareNames("", "Smile Dental")).toBe("unclear");
   });
 });

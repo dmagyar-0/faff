@@ -9,6 +9,7 @@ import type { Brief } from "./brief";
 import { citationHolds, isFirstPartySource, pageNamesBusiness } from "./citation";
 import type { ResolvedContact } from "./contact";
 import type { Observation } from "./observations";
+import type { E164 } from "./primitives";
 import { err, ok, type Result } from "./result";
 
 export const CONTACT_SWITCH_REASONS = [
@@ -31,7 +32,7 @@ export type ContactSwitchInput = {
   /** The contact resolution found after the wrong number. */
   readonly newContact: ResolvedContact;
   /** The number that turned out to be wrong. */
-  readonly failedPhone: string;
+  readonly failedPhone: E164;
   /** This business's observations. */
   readonly observations: readonly Observation[];
   /** The `businesses` row: identity, and the website G20 adds. */
@@ -50,8 +51,10 @@ export type ContactSwitchInput = {
   /** Directories the locale trusts as first-party (en-GB: the NHS service directory). */
   readonly trustedDirectories: readonly string[];
   /**
-   * Whether `limits` allow one more dial (I-8), as `limits.mayDial` decides it. Passed in so this
-   * guard and the dialler can't disagree about the limits.
+   * Whether `limits` allow one more dial (I-8), as `limits.mayDial` decides it: `true` when the
+   * attempts, minutes and lifetime aren't exhausted, even if the dial must wait ("not before");
+   * `false` only when a limit is exhausted. Passed in so this guard and the dialler can't
+   * disagree about the limits.
    */
   readonly dialAllowed: boolean;
 };
@@ -75,19 +78,25 @@ export const mayAutoSwitchContact = (
   if (phone === undefined) return err("no_new_number");
   if (phone === input.failedPhone) return err("same_number");
 
-  // 2. Where it came from.
-  if (contact.source === "observations") return err("source_not_trusted");
+  // 2. Where it came from. Only the user's memory or a first-party page; anything else fails.
   /** The re-fetched evidence page, for a web-found contact whose citation still holds. */
   let webPage: string | undefined;
-  if (contact.source === "web_extract") {
-    if (!isFirstPartySource(contact.evidence.url, business.website, input.trustedDirectories)) {
+  switch (contact.source) {
+    case "user_memory":
+      break;
+    case "web_extract": {
+      if (!isFirstPartySource(contact.evidence.url, business.website, input.trustedDirectories)) {
+        return err("source_not_trusted");
+      }
+      const page = input.evidencePageText;
+      if (page === undefined || !citationHolds({ phone }, contact.evidence.quote, page).ok) {
+        return err("citation_failed");
+      }
+      webPage = page;
+      break;
+    }
+    default:
       return err("source_not_trusted");
-    }
-    const page = input.evidencePageText;
-    if (page === undefined || !citationHolds({ phone }, contact.evidence.quote, page).ok) {
-      return err("citation_failed");
-    }
-    webPage = page;
   }
 
   // 3. Never a number this business is known not to answer as itself.

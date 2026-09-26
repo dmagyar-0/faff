@@ -6,6 +6,7 @@ import { Temporal } from "./time";
 
 const TZ = "Europe/London";
 const NOW = Temporal.Instant.from("2026-10-15T12:00:00Z");
+const NOW_XMAS = Temporal.Instant.from("2027-01-05T12:00:00Z");
 const both = { phone: "+442079460000", email: "hello@smile.example" };
 const resolve = (inputs: Parameters<typeof resolveChannel>[0]) =>
   resolveChannel(inputs, NOW, TZ, []);
@@ -90,6 +91,17 @@ describe("observedPrefersEmail", () => {
         [],
       ),
     ).toBe(false);
+  });
+
+  it("counts working days with the holidays and timezone given", () => {
+    // From Thu 24 Dec 2026, two working days is Wed 30 Dec when 25 and 28 Dec are holidays, but
+    // Mon 28 Dec without them, so a reply on Tue 29 Dec is prompt only with the holidays.
+    const reply = latency(1, "2026-12-24T10:00:00Z", "2026-12-29T10:00:00Z");
+    expect(observedPrefersEmail([reply], NOW_XMAS, TZ, ["2026-12-25", "2026-12-28"])).toBe(true);
+    expect(observedPrefersEmail([reply], NOW_XMAS, TZ, [])).toBe(false);
+    // The deadline is Wed 30 Dec 10:00; half an hour past it is too slow.
+    const late = latency(1, "2026-12-24T10:00:00Z", "2026-12-30T10:30:00Z");
+    expect(observedPrefersEmail([late], NOW_XMAS, TZ, ["2026-12-25", "2026-12-28"])).toBe(false);
   });
 
   it("the most recent preference-relevant observation decides", () => {

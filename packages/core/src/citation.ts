@@ -50,18 +50,73 @@ export const normalisePhone = (text: string, defaultRegion: "GB" = "GB"): E164 |
   return `+${digits}`;
 };
 
-/** Runs of text that could be one phone number: digits with the usual separators. */
-const PHONE_RUN = /(?:\+|\b)\d[\d\s().\-/]{5,}\d/g;
+/** Digit groups separated by the characters phone numbers are written with. */
+const DIGIT_RUN = /\d(?:[\s().\-/]*\d)*/g;
 const EMAIL_RUN = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
 
-const phonesIn = (text: string): E164[] => {
-  const out: E164[] = [];
-  for (const m of text.matchAll(PHONE_RUN)) {
-    const e164 = normalisePhone(m[0]);
-    if (e164 !== null) out.push(e164);
+type Occurrence = readonly [number, number];
+
+/** Every place `needle` appears in `haystack`, as [start, end). */
+const occurrencesOf = (haystack: string, needle: string): Occurrence[] => {
+  const out: Occurrence[] = [];
+  for (let at = haystack.indexOf(needle); at >= 0; at = haystack.indexOf(needle, at + 1)) {
+    out.push([at, at + needle.length]);
   }
   return out;
 };
+
+const inside = (start: number, end: number, spans: readonly Occurrence[]): boolean =>
+  spans.some(([s, e]) => s <= start && end <= e);
+
+/** The ways the page might write `phone`'s digits: +44…, 0044…, 0…, and +44 (0)…. */
+const digitSpellings = (phone: E164): Set<string> => {
+  const intl = phone.slice(1);
+  const out = new Set([intl, `00${intl}`]);
+  if (intl.startsWith("44")) {
+    out.add(`0${intl.slice(2)}`);
+    out.add(`440${intl.slice(2)}`);
+    out.add(`00440${intl.slice(2)}`);
+  }
+  return out;
+};
+
+/**
+ * Whether `phone` is written on the page, inside the quote, as a whole: some span of whole digit
+ * groups of a digit run lying inside an occurrence of the quote spells it. Whole groups mean a
+ * number can't be cut out of a longer one ("020 7946 00001234" doesn't contain 020 7946 0000).
+ */
+const phoneOnPage = (phone: E164, page: string, quotes: readonly Occurrence[]): boolean => {
+  const spellings = digitSpellings(phone);
+  for (const m of page.matchAll(DIGIT_RUN)) {
+    const groups = [...m[0].matchAll(/\d+/g)].map((g) => ({
+      digits: g[0],
+      start: m.index + g.index,
+      end: m.index + g.index + g[0].length,
+    }));
+    for (let i = 0; i < groups.length; i++) {
+      let digits = "";
+      for (let j = i; j < groups.length; j++) {
+        const g = groups[j] as (typeof groups)[number];
+        digits += g.digits;
+        const start = (groups[i] as (typeof groups)[number]).start;
+        if (spellings.has(digits) && inside(start, g.end, quotes)) return true;
+      }
+    }
+  }
+  return false;
+};
+
+/**
+ * Whether `email` is written on the page, inside the quote, as a whole address: a maximal
+ * address-shaped run, so "info@…" can't be cut out of "notinfo@…" nor "…co" out of "…co.uk".
+ */
+const emailOnPage = (email: string, page: string, quotes: readonly Occurrence[]): boolean =>
+  [...page.matchAll(EMAIL_RUN)].some((m) => {
+    const before = page[m.index - 1] ?? " ";
+    const after = page[m.index + m[0].length] ?? " ";
+    const whole = !/[A-Za-z0-9._%+-]/.test(before) && !/[A-Za-z0-9.-]/.test(after);
+    return whole && sameEmail(m[0], email) && inside(m.index, m.index + m[0].length, quotes);
+  });
 
 /** Emails are equal when the local part matches exactly and the domain ignoring case. */
 export const sameEmail = (a: string, b: string): boolean => {
@@ -83,9 +138,11 @@ export const CITATION_REASONS = ["quote_not_on_page", "value_not_in_quote", "emp
 export type CitationReason = (typeof CITATION_REASONS)[number];
 
 /**
- * `ok` when the normalised quote appears in the normalised page **and** the candidate appears in
- * the quote: a phone as the E.164 of some phone-like run in the quote, an email as an address in
- * the quote with the same local part and the same domain ignoring case.
+ * `ok` when the normalised quote appears in the normalised page **and** the candidate is written,
+ * whole, inside it: a phone as a whole span of digit groups spelling its number (+44, 0044, 0 or
+ * +44 (0) forms); an email as a whole address with the same local part and the same domain
+ * ignoring case. The value is looked for on the page, not just in the quote, so a quote that cuts
+ * a longer number or address in half can't vouch for the half.
  */
 export const citationHolds = (
   candidate: CitationCandidate,
@@ -94,11 +151,13 @@ export const citationHolds = (
 ): Result<true, CitationReason> => {
   const q = normaliseText(quote);
   if (q === "") return err("empty_quote");
-  if (!normaliseText(pageText).includes(q)) return err("quote_not_on_page");
+  const page = normaliseText(pageText);
+  const quotes = occurrencesOf(page, q);
+  if (quotes.length === 0) return err("quote_not_on_page");
   const found =
     candidate.phone !== undefined
-      ? phonesIn(q).includes(candidate.phone)
-      : [...q.matchAll(EMAIL_RUN)].some((m) => sameEmail(m[0], candidate.email));
+      ? phoneOnPage(candidate.phone, page, quotes)
+      : emailOnPage(candidate.email, page, quotes);
   return found ? ok(true) : err("value_not_in_quote");
 };
 
@@ -112,31 +171,35 @@ export const PAGE_NAMES_REASONS = ["name_not_on_page", "location_not_on_page"] a
 export type PageNamesReason = (typeof PAGE_NAMES_REASONS)[number];
 
 /**
- * Q39 condition 4: the evidence page names the business (every word of its display name appears
- * on the page) **and** matches its postcode (spaces and case ignored) or its address (every word
- * of it appears, in order).
+ * Q39 condition 4: the evidence page names the business (the part of its display name before any
+ * comma appears as one phrase) **and** has its postcode (as whole words, case and the space
+ * ignored) or its address (as one phrase).
  */
 export const pageNamesBusiness = (
   pageText: string,
   business: { readonly displayName: string; readonly postcode?: string; readonly address?: string },
 ): Result<true, PageNamesReason> => {
   const page = ` ${fold(pageText)} `;
-  const nameWords = fold(business.displayName)
-    .split(" ")
-    .filter((w) => w !== "");
-  if (nameWords.length === 0 || !nameWords.every((w) => page.includes(` ${w} `))) {
-    return err("name_not_on_page");
-  }
+  // The name as one phrase: the part before the display name's comma ("Smile Dental, Clapham").
+  const name = fold(business.displayName.split(",", 1).join(""));
+  if (name === "" || !page.includes(` ${name} `)) return err("name_not_on_page");
   const postcode = business.postcode === undefined ? "" : fold(business.postcode).replace(/ /g, "");
   const address = business.address === undefined ? "" : fold(business.address);
-  const postcodeOk = postcode !== "" && page.replace(/ /g, "").includes(postcode);
+  // The postcode as whole words: its outward and inward parts, with or without the space.
+  const postcodeOk =
+    postcode.length > 3 &&
+    (page.includes(` ${postcode.slice(0, -3)} ${postcode.slice(-3)} `) ||
+      page.includes(` ${postcode} `));
   const addressOk = address !== "" && page.includes(` ${address} `);
   return postcodeOk || addressOk ? ok(true) : err("location_not_on_page");
 };
 
 /** The host of an http(s) URL, lowercase, without a trailing dot; `undefined` if there isn't one. */
 export const hostOf = (url: string): string | undefined => {
-  const m = /^https?:\/\/(?:[^@/?#]*@)?([^:/?#\\]+)(?::\d+)?(?:[/?#]|$)/i.exec(url.trim());
+  // Browsers read "\" as "/" and "user@host" as host, so a URL with either, or with whitespace
+  // or control characters, could name one host here and fetch another: no host at all.
+  if (/[\\@\s\p{Cc}]/u.test(url)) return undefined;
+  const m = /^https?:\/\/([^:/?#]+)(?::\d+)?(?:[/?#]|$)/i.exec(url);
   const host = m?.[1]?.toLowerCase().replace(/\.$/, "");
   return host === undefined || host === "" ? undefined : host;
 };

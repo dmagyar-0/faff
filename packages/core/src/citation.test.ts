@@ -131,6 +131,44 @@ describe("citationHolds (I-11)", () => {
     ).toBe(false);
   });
 
+  it("a quote that cuts a longer value in half can't vouch for the half", () => {
+    const emailPage = "Email bookings@smiledental.co.uk or notinfo@smiledental.example";
+    expect(
+      citationHolds(
+        { email: "bookings@smiledental.co" },
+        "Email bookings@smiledental.co",
+        emailPage,
+      ),
+    ).toEqual({ ok: false, reason: "value_not_in_quote" });
+    expect(
+      citationHolds({ email: "info@smiledental.example" }, "info@smiledental.example", emailPage)
+        .ok,
+    ).toBe(false);
+    const phonePage = "Ref 020 7946 00001234 for orders";
+    expect(citationHolds({ phone: "+442079460000" }, "Ref 020 7946 0000", phonePage)).toEqual({
+      ok: false,
+      reason: "value_not_in_quote",
+    });
+  });
+
+  it("finds the number when other digits sit beside it in the same run", () => {
+    const page = "Mon-Fri 9-5 020 7946 0000 / 020 7946 1111";
+    expect(citationHolds({ phone: "+442079460000" }, "9-5 020 7946 0000", page).ok).toBe(true);
+    expect(citationHolds({ phone: "+442079461111" }, "0000 / 020 7946 1111", page).ok).toBe(true);
+    // The value must sit inside the quote, not just somewhere on the page.
+    expect(citationHolds({ phone: "+442079461111" }, "Mon-Fri 9-5", page).ok).toBe(false);
+    // Every spelling of the same number: +44, 0044 and +44 (0).
+    expect(
+      citationHolds({ phone: "+442079460000" }, "0044 20 7946 0000", "Tel 0044 20 7946 0000").ok,
+    ).toBe(true);
+    expect(
+      citationHolds({ phone: "+442079460000" }, "+44 (0)20 7946 0000", "+44 (0)20 7946 0000").ok,
+    ).toBe(true);
+    expect(
+      citationHolds({ phone: "+35312345678" }, "+353 1 234 5678", "Dublin +353 1 234 5678").ok,
+    ).toBe(true);
+  });
+
   it("an empty quote proves nothing", () => {
     expect(citationHolds({ phone: "+442079460000" }, "  ", page)).toEqual({
       ok: false,
@@ -173,6 +211,24 @@ describe("pageNamesBusiness (Q39 condition 4)", () => {
     expect(pageNamesBusiness(page, { displayName: ", ", postcode: "SW4 7AA" }).ok).toBe(false);
   });
 
+  it("needs the name as one phrase and the postcode as whole words", () => {
+    const scattered = "Dental news: smile! Bright Smile Clinic, Clapham SW4 7AA";
+    expect(
+      pageNamesBusiness(scattered, { displayName: "Smile Dental, Clapham", postcode: "SW4 7AA" }),
+    ).toEqual({
+      ok: false,
+      reason: "name_not_on_page",
+    });
+    const animals = "Smile Dental: we see 16 animals a day";
+    expect(pageNamesBusiness(animals, { displayName: "Smile Dental", postcode: "E1 6AN" }).ok).toBe(
+      false,
+    );
+    expect(
+      pageNamesBusiness("Smile Dental, E16AN", { displayName: "Smile Dental", postcode: "E1 6AN" })
+        .ok,
+    ).toBe(true);
+  });
+
   it("fails without a matching location", () => {
     expect(pageNamesBusiness(page, { displayName: "Smile Dental", postcode: "SW9 1AA" })).toEqual({
       ok: false,
@@ -207,6 +263,10 @@ describe("isFirstPartySource (Q39 condition 2)", () => {
     ["https://notsmiledental.example/", "smiledental.example"],
     ["https://nhs.uk.evil.example/", undefined],
     ["https://nhs.uk@evil.example/", undefined],
+    ["https://evil.example\\@smiledental.example/", "smiledental.example"],
+    ["https://evil.example\\@www.nhs.uk/x", undefined],
+    ["https://evil.example\\.smiledental.example/", "smiledental.example"],
+    ["https://smiledental.example /x", "smiledental.example"],
     ["ftp://smiledental.example/", "smiledental.example"],
     ["not a url", "smiledental.example"],
   ])("%s is not (site %s)", (url, site) => {
@@ -214,7 +274,8 @@ describe("isFirstPartySource (Q39 condition 2)", () => {
   });
 
   it("hostOf and domainOf", () => {
-    expect(hostOf("https://user:pw@Example.COM:8443/a?b#c")).toBe("example.com");
+    expect(hostOf("https://Example.COM:8443/a?b#c")).toBe("example.com");
+    expect(hostOf("https://user:pw@example.com/")).toBeUndefined();
     expect(hostOf("https://")).toBeUndefined();
     expect(domainOf("www.Smile.example/path")).toBe("smile.example");
     expect(domainOf("https://www.smile.example")).toBe("smile.example");

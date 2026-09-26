@@ -53,12 +53,14 @@ Written only by `deriveBusinessProfile(observations, now)`, a **deterministic fu
 
 - **Best phone:** the most recent `reached_ok` number with no newer `number_wrong` for that number, reached under 180 days ago. **Best email:** the most recent `reached_ok` address under 180 days old.
 - **IVR hint, opening hours, AI reception** (accepted or refused): the most recent observation of each.
-- **Typical hold:** the median of the last 10 `hold_minutes`. No LLM writes to it. When it expires it is **thrown away and recomputed, never corrected in place**. Agents that need nuance get the raw recent observations, not the cache.
+- **Typical hold:** the median of the last 10 `hold_minutes`.
+
+It takes one business's observations (the caller filters by `business_id`). `derived_from_max_id` is the highest id it considered, so a row dated after `now` isn't counted until it is due. No LLM writes to it. When it expires it is **thrown away and recomputed, never corrected in place**. Agents that need nuance get the raw recent observations, not the cache.
 
 ## Core tables
 
 ### `businesses`
-`id, display_name, kind, address, postcode, website, country ('GB'), locale ('en-GB'), created_at`. Identity only. Contact details live in observations. `kind` is the Brief's `business.kind` (G19), which picks the opener's noun. `website` (G20, nullable) is the business's own domain: a web-found contact cited there counts as first-party for Q39 ([08](08-business-resolution.md#after-a-wrong-number)).
+`id, display_name, kind, address, postcode, website, country ('GB'), locale ('en-GB'), created_at`. Identity only. Contact details live in observations. `kind` is the Brief's `business.kind` (G19), which picks the opener's noun. `website` (G20, nullable) is the business's own domain: a web-found contact cited there, or on any subdomain of it, counts as first-party for Q39 ([08](08-business-resolution.md#after-a-wrong-number)). It must be a domain the business owns, never a shared host (a social network, a site builder, a directory), or that whole host would count as the business's own; M2 rejects a website with a path or on a known shared host.
 
 ### `profile_fields` — see [05](05-onboarding-and-profile.md)
 `user_id, field (enum), value (encrypted), disclose_by_default bool, updated_at`. PK `(user_id, field)`.

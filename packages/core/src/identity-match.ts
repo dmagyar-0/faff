@@ -4,7 +4,9 @@
  * dent all" is Smile Dental. `confirm_business_identity` (M4) wraps it; on `match` the call's
  * `identity_confirmed` is set, on `mismatch` the agent ends the call, on `unclear` it asks once.
  *
- * The thresholds are provisional until the M6 noise scenarios tune them.
+ * A `match` sets `identity_confirmed`, which lets `reveal_profile_field` release the user's
+ * details (I-7), so it errs towards `unclear`: that costs one clarifying question. The spelling
+ * tolerance is provisional until the M6 noise scenarios tune it.
  */
 
 /** Words that say nothing about which business it is. */
@@ -28,11 +30,6 @@ const GENERIC = new Set([
   "uk",
   "group",
 ]);
-
-/** At or above this, the names match. */
-export const MATCH_THRESHOLD = 0.8;
-/** At or below this, they don't. In between is unclear, and the agent asks once. */
-export const MISMATCH_THRESHOLD = 0.4;
 
 export type IdentityVerdict = "match" | "mismatch" | "unclear";
 
@@ -65,32 +62,54 @@ const levenshtein = (a: string, b: string): number => {
   return prev[b.length] as number;
 };
 
-/** 1 for identical, 0 for nothing in common. */
-const editSimilarity = (a: string, b: string): number => {
-  const longest = Math.max(a.length, b.length);
-  return longest === 0 ? 0 : 1 - levenshtein(a, b) / longest;
-};
-
-/** Dice coefficient on the word sets. */
-const tokenSimilarity = (a: readonly string[], b: readonly string[]): number => {
-  const setA = new Set(a);
-  const setB = new Set(b);
-  if (setA.size + setB.size === 0) return 0;
-  let shared = 0;
-  for (const w of setA) if (setB.has(w)) shared++;
-  return (2 * shared) / (setA.size + setB.size);
+/**
+ * Whether a heard word is the same word misheard. Exact, or for longer words a small spelling
+ * slip with the same first letter: "smiles" is Smile, "dentall" is Dental, but "style" isn't
+ * Smile and "roots" isn't Boots. Short words must match exactly.
+ */
+export const sameWord = (heard: string, word: string): boolean => {
+  if (heard === word) return true;
+  if (heard[0] !== word[0]) return false;
+  const longest = Math.max(heard.length, word.length);
+  const allowed = longest >= 9 ? 2 : longest >= 6 ? 1 : 0;
+  return allowed > 0 && levenshtein(heard, word) <= allowed;
 };
 
 /**
- * How alike two names are, 0–1: the better of word overlap ("Bright Smile" vs "Smile Dental" is
- * 0.5) and spelling with the spaces taken out ("smile dent all" vs "Smile Dental" is 0.92), so
- * misheard word breaks don't count against a match.
+ * Compare what was heard with one name, word by word. Each of the name's words must be heard,
+ * alone or as up to three heard words run together ("dent all" is "dental"). Then:
+ * - every word heard, and nothing else distinctive: `match`;
+ * - every word heard, plus another distinctive word (another branch, "Balham"): `unclear`;
+ * - some of the words: `unclear`; none: `mismatch`.
  */
-export const nameSimilarity = (heard: string, name: string): number => {
+export const compareNames = (heard: string, name: string): IdentityVerdict => {
   const h = tokens(heard);
   const n = tokens(name);
-  return Math.max(tokenSimilarity(h, n), editSimilarity(h.join(""), n.join("")));
+  if (h.length === 0 || n.length === 0) return "unclear";
+  const used = new Set<number>();
+  let matched = 0;
+  for (const word of n) {
+    let found = false;
+    for (let i = 0; i < h.length && !found; i++) {
+      for (let len = 1; len <= 3 && i + len <= h.length && !found; len++) {
+        const indices = Array.from({ length: len }, (_, k) => i + k);
+        if (indices.some((k) => used.has(k))) continue;
+        if (sameWord(indices.map((k) => h[k]).join(""), word)) {
+          indices.forEach((k) => used.add(k));
+          found = true;
+        }
+      }
+    }
+    if (found) matched++;
+  }
+  if (matched === 0) return "mismatch";
+  if (matched < n.length) return "unclear";
+  return used.size === h.length ? "match" : "unclear";
 };
+
+const RANK: Readonly<Record<IdentityVerdict, number>> = { mismatch: 0, unclear: 1, match: 2 };
+const best = (verdicts: readonly IdentityVerdict[]): IdentityVerdict =>
+  verdicts.reduce<IdentityVerdict>((a, b) => (RANK[b] > RANK[a] ? b : a), "mismatch");
 
 /**
  * The names the callee might reasonably say: the display name; the part before its first comma
@@ -111,13 +130,13 @@ const candidateNames = (
   );
 };
 
-const verdictOf = (score: number): IdentityVerdict =>
-  score >= MATCH_THRESHOLD ? "match" : score <= MISMATCH_THRESHOLD ? "mismatch" : "unclear";
-
 /**
- * Compare what the callee said with the business's display name and every alias. When the callee
- * also gave a location and the business has one, a clearly different location ("the Balham
- * branch") is a mismatch, and an unclear one makes the whole answer unclear.
+ * Compare what the callee said with the business's display name and every alias, and take the
+ * best verdict. When the callee also gave a location and the business has one, the location must
+ * match too; a clearly different one ("Brixton") is a mismatch, a partial one unclear.
+ *
+ * Nothing identifiable heard ("hello?"), or nothing to compare with, is `unclear`: ask once,
+ * don't decide.
  */
 export const matchBusinessIdentity = (
   heard: { readonly name: string; readonly location?: string },
@@ -125,12 +144,11 @@ export const matchBusinessIdentity = (
   aliases: readonly string[] = [],
 ): IdentityVerdict => {
   const candidates = candidateNames(business, aliases);
-  // Nothing identifiable heard ("hello?"), or nothing to compare with: ask, don't decide.
   if (tokens(heard.name).length === 0 || candidates.length === 0) return "unclear";
-  const best = Math.max(...candidates.map((n) => nameSimilarity(heard.name, n)));
-  const name = verdictOf(best);
-  if (name !== "match" || heard.location === undefined || business.location === undefined)
+  const name = best(candidates.map((n) => compareNames(heard.name, n)));
+  if (name !== "match" || heard.location === undefined || business.location === undefined) {
     return name;
+  }
   if (tokens(heard.location).length === 0) return name;
-  return verdictOf(nameSimilarity(heard.location, business.location));
+  return compareNames(heard.location, business.location);
 };

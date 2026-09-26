@@ -176,6 +176,49 @@ describe("mayAutoSwitchContact: each failure has its own reason, checked in spec
     expect(mayAutoSwitchContact(input({ observations: [other] })).ok).toBe(true);
   });
 
+  it("checks the conditions in spec 08's order: breaking k..6 together reports k", () => {
+    const breaks: [string, Partial<ContactSwitchInput>][] = [
+      [
+        "source_not_trusted",
+        {
+          newContact: {
+            ...webContact,
+            evidence: { ...webContact.evidence, url: "https://yell.example/x" },
+          },
+        },
+      ],
+      ["citation_failed", { evidencePageText: "Smile Dental, Clapham SW4 7AA" }],
+      [
+        "known_wrong_number",
+        { observations: [obs(1, "number_wrong", { e164: NEW }, "2026-09-01T09:00:00Z")] },
+      ],
+      [
+        "page_does_not_name_business",
+        {
+          business: {
+            businessId: BUSINESS_ID,
+            displayName: "Bright Smile",
+            postcode: "SW4 7AA",
+            website: "smiledental.example",
+          },
+        },
+      ],
+      ["already_switched", { autoSwitchesSoFar: 1 }],
+      ["limits_exhausted", { dialAllowed: false }],
+    ];
+    for (let k = 0; k < breaks.length; k++) {
+      const combined = Object.assign(
+        {},
+        ...breaks.slice(k).map(([, o]) => o),
+      ) as Partial<ContactSwitchInput>;
+      // The citation break replaces the page, which would also hide the name: keep it apart.
+      expect(mayAutoSwitchContact(input(combined)), breaks[k]?.[0]).toEqual({
+        ok: false,
+        reason: breaks[k]?.[0],
+      });
+    }
+  });
+
   it("reports the first failing condition when several fail", () => {
     const result = mayAutoSwitchContact(
       input({
