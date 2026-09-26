@@ -56,7 +56,9 @@ describe("wall-clock maths in Europe/London", async () => {
     expect(isoWeekday(parseLocalDate("2026-10-31"))).toBe(6);
     expect(compareDates(parseLocalDate("2026-10-31"), parseLocalDate("2026-11-01"))).toBe(-1);
     expect(toOffsetIso(instantOf("2026-10-05T08:00:00Z"), TZ)).toBe("2026-10-05T09:00:00+01:00");
-    expect(toOffsetIso(instantOf("2026-12-05T08:00:00.5Z"), TZ)).toBe("2026-12-05T08:00:00+00:00");
+    expect(toOffsetIso(instantOf("2026-12-05T08:00:00.5Z"), TZ)).toBe(
+      "2026-12-05T08:00:00.5+00:00",
+    );
   });
 
   it("minute and hour arithmetic on instants ignores DST", () => {

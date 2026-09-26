@@ -76,6 +76,10 @@ export const wallClockInstant = (
 /** 1 = Monday … 7 = Sunday, as ISO 8601 and Temporal number them. */
 export const isoWeekday = (date: Temporal.PlainDate): number => date.dayOfWeek;
 
-/** An instant as RFC 3339 in `timezone`'s offset at that moment, e.g. `2026-10-05T09:00:00+01:00`. */
+/**
+ * An instant as RFC 3339 in `timezone`'s offset at that moment, e.g. `2026-10-05T09:00:00+01:00`,
+ * keeping any fraction of a second so it names the same instant. For years 0000–9999 in zones with
+ * whole-minute offsets, which every date Faff handles is.
+ */
 export const toOffsetIso = (at: Temporal.Instant, timezone: string): string =>
-  at.toZonedDateTimeISO(timezone).toString({ timeZoneName: "never", smallestUnit: "second" });
+  at.toZonedDateTimeISO(timezone).toString({ timeZoneName: "never" });

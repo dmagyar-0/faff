@@ -11,7 +11,7 @@
  *   (`record_offer`) and these become the escalation's offers.
  */
 import type { AcceptanceRule, Preference, Window } from "./acceptance-rule";
-import { checkHeardDate, type HeardDate, type HeardDateMismatch } from "./heard-date";
+import { type HeardDate, type HeardDateMismatch, heardDateMismatches } from "./heard-date";
 import { normalisePractitioner, samePractitioner } from "./practitioner";
 import { IsoDateTime, type Slot, WEEKDAYS } from "./primitives";
 import {
@@ -89,6 +89,14 @@ type Interval = { readonly start: Instant; readonly end: Instant };
 const readInstant = (iso: string | undefined): Instant | undefined =>
   iso !== undefined && IsoDateTime.safeParse(iso).success ? tryInstantOf(iso) : undefined;
 
+/** The service's duration if it is a sensible whole number of minutes, else the default. */
+const serviceMinutes = (ctx: AcceptanceContext): number => {
+  const d = ctx.defaultDurationMinutes;
+  return d !== undefined && Number.isSafeInteger(d) && d > 0 && d <= MAX_SLOT_MINUTES
+    ? d
+    : DEFAULT_SLOT_MINUTES;
+};
+
 /** Every occurrence of `window` that could touch [from, to], as instants. */
 const occurrences = (window: Window, from: Instant, to: Instant, timezone: string): Interval[] => {
   if (window.kind === "absolute") {
@@ -136,15 +144,26 @@ const inWindows = (rule: AcceptanceRule, slot: Interval, timezone: string): bool
       compareInstants(span.start, slot.start) <= 0 && compareInstants(slot.end, span.end) <= 0,
   );
 
-/** `undefined` if the calendar couldn't be read; otherwise whether the slot clashes. */
+/**
+ * `undefined` if the calendar couldn't be read; otherwise whether the slot clashes. For a
+ * reschedule, the one busy block that is the existing appointment is left out: same start, and
+ * the same end (its `endsAt`, else start plus the service's duration). Free/busy carries no ids,
+ * so an exact match is the best signal there is.
+ */
 const clashesWithCalendar = (
   rule: AcceptanceRule,
   slot: Interval,
   busy: readonly BusyInterval[],
-  existing: AcceptanceContext["existingAppointment"],
+  ctx: AcceptanceContext,
 ): boolean | undefined => {
-  const existingStart = readInstant(existing?.startsAt);
-  const existingEnd = readInstant(existing?.endsAt);
+  const existingStart = readInstant(ctx.existingAppointment?.startsAt);
+  const existingEnd =
+    existingStart === undefined
+      ? undefined
+      : ctx.existingAppointment?.endsAt === undefined
+        ? addMinutes(existingStart, serviceMinutes(ctx))
+        : readInstant(ctx.existingAppointment.endsAt);
+  let skipped = false;
   let clash = false;
   for (const block of busy) {
     const start = readInstant(block.start);
@@ -152,10 +171,15 @@ const clashesWithCalendar = (
     if (start === undefined || end === undefined || compareInstants(start, end) > 0)
       return undefined;
     const isExisting =
+      !skipped &&
       existingStart !== undefined &&
+      existingEnd !== undefined &&
       compareInstants(start, existingStart) === 0 &&
-      (existingEnd === undefined || compareInstants(end, existingEnd) === 0);
-    if (isExisting) continue;
+      compareInstants(end, existingEnd) === 0;
+    if (isExisting) {
+      skipped = true;
+      continue;
+    }
     // Half-open: a buffer that ends exactly where the slot starts doesn't clash.
     const from = addMinutes(start, -rule.bufferMinutes);
     const to = addMinutes(end, rule.bufferMinutes);
@@ -191,19 +215,15 @@ export const evaluateAcceptance = (
 ): AcceptanceResult => {
   const start = readInstant(slot.start);
   if (start === undefined) return { kind: "reject", reason: "invalid_slot" };
-  const duration = ctx.defaultDurationMinutes ?? DEFAULT_SLOT_MINUTES;
+  const duration = serviceMinutes(ctx);
   const end = slot.end === undefined ? addMinutes(start, duration) : readInstant(slot.end);
   if (end === undefined || compareInstants(end, start) <= 0)
     return { kind: "reject", reason: "invalid_slot" };
   if (minutesBetween(start, end) > MAX_SLOT_MINUTES)
     return { kind: "reject", reason: "invalid_slot" };
   if (ctx.heard !== undefined) {
-    const heard = checkHeardDate({ start: slot.start, heard: ctx.heard }, ctx.timezone);
-    if (!heard.ok) {
-      return heard.detail === undefined
-        ? { kind: "reject", reason: "inconsistent_date" }
-        : { kind: "reject", reason: "inconsistent_date", mismatches: heard.detail };
-    }
+    const mismatches = heardDateMismatches(start, ctx.heard, ctx.timezone);
+    if (mismatches.length > 0) return { kind: "reject", reason: "inconsistent_date", mismatches };
   }
   if (compareInstants(start, ctx.now) < 0) return { kind: "reject", reason: "in_past" };
 
@@ -217,7 +237,7 @@ export const evaluateAcceptance = (
   const reasons: OutsideRuleReason[] = [];
   if (!inWindows(rule, interval, ctx.timezone)) reasons.push("not_in_window");
   if (rule.avoidCalendarConflicts) {
-    const clash = clashesWithCalendar(rule, interval, busy, ctx.existingAppointment);
+    const clash = clashesWithCalendar(rule, interval, busy, ctx);
     if (clash === undefined) reasons.push("calendar_unreadable");
     else if (clash) reasons.push("calendar_conflict");
   }

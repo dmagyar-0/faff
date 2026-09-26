@@ -66,7 +66,7 @@ docs/
 |---|---|---|
 | `confirm_business_identity(heard_name, heard_location?)` | Records the callee's answer to the identity question | Fuzzy-matches against the Brief's business. On a match, sets `identity_confirmed` for this call. On a mismatch, returns `end_call_wrong_number`. |
 | `reveal_profile_field(field)` | Gets a value to say aloud | Returns the value only if `field` is in `brief.disclosure.allowedFields` **and** `identity_confirmed` (I-7). Every call is logged. |
-| `propose_slot(start, end, practitioner?)` | Checks an offered slot | `evaluateAcceptance()` returns `accept` / `reject(reason)` / `outside_rule` (I-9). |
+| `propose_slot(start, end, practitioner?)` | Checks an offered slot | `evaluateAcceptance()` returns `accept` / `reject(reason)` / `outside_rule(reasons[])` (I-9, [06](06-escalation-and-acceptance.md#acceptance-rules-q24)). |
 | `record_offer(slot)` | Logs offers that were outside the rule, for escalation | — |
 | `get_existing_appointment()` | Details needed to reschedule or cancel | Only when the Brief's verb is reschedule or cancel. |
 | `confirm_cancellation_allowed()` | Gate before saying "please cancel it" | A cancel confirmation must exist and, if the cancel is paired, the replacement must be secured (I-10). |

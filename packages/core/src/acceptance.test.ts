@@ -397,21 +397,79 @@ describe("evaluateAcceptance", () => {
         const slot = { start: "2026-10-05T11:15:00Z" };
         expect(kind(withBuffer, slot, busy, ctx())).toBe("outside_rule");
         expect(kind(withBuffer, slot, busy, ctx({ existingAppointment: existing }))).toBe("accept");
-        // Without an end, the start alone identifies it.
+        // Without an end, the block must run from its start for the service's duration.
+        const noEnd = { startsAt: existing.startsAt };
         expect(
           kind(
             withBuffer,
             slot,
             busy,
-            ctx({ existingAppointment: { startsAt: existing.startsAt } }),
+            ctx({ existingAppointment: noEnd, defaultDurationMinutes: 60 }),
           ),
         ).toBe("accept");
+        expect(
+          kind(
+            withBuffer,
+            slot,
+            busy,
+            ctx({ existingAppointment: noEnd, defaultDurationMinutes: 30 }),
+          ),
+        ).toBe("outside_rule");
         // A block that only shares the start is someone else's event.
         const other = { startsAt: existing.startsAt, endsAt: "2026-10-05T12:30:00+01:00" };
         expect(kind(withBuffer, slot, busy, ctx({ existingAppointment: other }))).toBe(
           "outside_rule",
         );
       });
+    });
+  });
+
+  it("a clash with any busy block counts, whatever the order of the list", () => {
+    const r = rule([absolute("2026-10-05T08:00:00Z", "2026-10-05T18:00:00Z")], {
+      avoidCalendarConflicts: true,
+      bufferMinutes: 0,
+    });
+    const clashing = { start: "2026-10-05T10:00:00Z", end: "2026-10-05T11:00:00Z" };
+    const later = { start: "2026-10-05T15:00:00Z", end: "2026-10-05T16:00:00Z" };
+    const slot = { start: "2026-10-05T10:15:00Z" };
+    expect(kind(r, slot, [clashing, later])).toBe("outside_rule");
+    expect(kind(r, slot, [later, clashing])).toBe("outside_rule");
+  });
+
+  it("the existing appointment is ignored once: a second identical block still clashes", () => {
+    const r = rule([absolute("2026-10-05T08:00:00Z", "2026-10-05T18:00:00Z")], {
+      avoidCalendarConflicts: true,
+      bufferMinutes: 0,
+    });
+    const block = { start: "2026-10-05T10:00:00Z", end: "2026-10-05T11:00:00Z" };
+    const existing = { startsAt: block.start, endsAt: block.end };
+    const slot = { start: "2026-10-05T10:15:00Z" };
+    expect(kind(r, slot, [block], ctx({ existingAppointment: existing }))).toBe("accept");
+    expect(kind(r, slot, [block, block], ctx({ existingAppointment: existing }))).toBe(
+      "outside_rule",
+    );
+  });
+
+  it("ignores a service duration that isn't a sensible whole number of minutes", () => {
+    const r = rule([absolute("2026-10-05T09:00:00Z", "2026-10-05T09:30:00Z")]);
+    for (const d of [0.5, Number.NaN, -10, 0, 100_000]) {
+      expect(
+        kind(r, { start: "2026-10-05T09:00:00Z" }, [], ctx({ defaultDurationMinutes: d })),
+      ).toBe("accept");
+    }
+  });
+
+  it("keeps fractions of a second, so the returned slot names the instant evaluated", () => {
+    const r = rule([absolute("2026-10-05T09:00:00.5Z", "2026-10-05T10:00:00Z")]);
+    const result = evaluateAcceptance(
+      r,
+      { start: "2026-10-05T09:00:00.5Z" },
+      [],
+      ctx({ now: instantOf("2026-10-05T09:00:00.3Z") }),
+    );
+    expect(result).toMatchObject({
+      kind: "accept",
+      slot: { start: "2026-10-05T10:00:00.5+01:00" },
     });
   });
 

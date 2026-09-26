@@ -166,41 +166,73 @@ describe("evaluateAcceptance properties (fast-check, 2026–2028, both DST chang
     }
   });
 
+  /** A busy block within a couple of hours of the slot, so it has a real chance to clash. */
+  const nearBusy = (spec: SlotSpec): fc.Arbitrary<BusyInterval> =>
+    fc
+      .tuple(fc.integer({ min: -180, max: 180 }), fc.integer({ min: 0, max: 240 }))
+      .map(([offset, minutes]) => {
+        const start = spec.at.add({ minutes: offset });
+        return { start: write(start, "Z"), end: write(start.add({ minutes }), "+01:00") };
+      });
+  /** Scenarios whose rule checks the calendar, with busy blocks near the slot. */
+  const calendarScenarioArb = scenarioArb.chain((s) =>
+    fc.record({
+      scenario: fc.constant({ ...s, rule: { ...s.rule, avoidCalendarConflicts: true } }),
+      busy: fc.array(nearBusy(s.spec), { maxLength: 1 }),
+      extra: nearBusy(s.spec),
+    }),
+  );
+
   it("adding a busy interval never turns a non-accept into accept", () => {
     fc.assert(
-      fc.property(
-        ruleArb,
-        slotArb,
-        busyListArb,
-        busyArb,
-        nowArb,
-        (rule, spec, busy, extra, now) => {
-          const slot = toSlot(spec, "Z");
-          const before = run(rule, slot, busy, now).kind;
-          const after = run(rule, slot, [...busy, extra], now).kind;
+      fc.property(calendarScenarioArb, ({ scenario: { rule, spec, now }, busy, extra }) => {
+        const slot = toSlot(spec, "Z");
+        const before = run(rule, slot, busy, now).kind;
+        // The extra block goes first and last: order must not matter.
+        for (const list of [
+          [extra, ...busy],
+          [...busy, extra],
+        ]) {
+          const after = run(rule, slot, list, now).kind;
           if (before !== "accept") expect(after).not.toBe("accept");
-        },
-      ),
+        }
+      }),
     );
+  });
+
+  it("the busy scenarios really do turn accepts into calendar conflicts (so the property bites)", () => {
+    const flips = fc
+      .sample(calendarScenarioArb, { numRuns: 3000, seed: 2 })
+      .filter(({ scenario: { rule, spec, now }, busy, extra }) => {
+        const slot = toSlot(spec, "Z");
+        return (
+          run(rule, slot, busy, now).kind === "accept" &&
+          run(rule, slot, [...busy, extra], now).kind !== "accept"
+        );
+      }).length;
+    expect(flips).toBeGreaterThan(100);
   });
 
   it("adding a window never turns accept into anything else", () => {
     fc.assert(
-      fc.property(
-        ruleArb,
-        windowArb,
-        slotArb,
-        busyListArb,
-        nowArb,
-        (rule, extra, spec, busy, now) => {
-          const slot = toSlot(spec, "+01:00");
-          const wider = AcceptanceRule.parse({ ...rule, windows: [...rule.windows, extra] });
-          if (run(rule, slot, busy, now).kind === "accept") {
-            expect(run(wider, slot, busy, now).kind).toBe("accept");
-          }
-        },
-      ),
+      fc.property(scenarioArb, windowArb, busyListArb, ({ rule, spec, now }, extra, busy) => {
+        const slot = toSlot(spec, "+01:00");
+        const wider = AcceptanceRule.parse({ ...rule, windows: [...rule.windows, extra] });
+        if (run(rule, slot, busy, now).kind === "accept") {
+          expect(run(wider, slot, busy, now).kind).toBe("accept");
+        }
+      }),
     );
+  });
+
+  it("the window property sees plenty of accepts", () => {
+    const accepts = fc
+      .sample(fc.tuple(scenarioArb, busyListArb), { numRuns: 1000, seed: 3 })
+      .filter(
+        ([{ rule, spec, now }, busy]) =>
+          run(rule, toSlot(spec, "+01:00"), busy, now).kind === "accept",
+      ).length;
+    expect(accepts).toBeGreaterThan(100);
   });
 
   it("a slot inside an absolute window, with no other constraint, is accepted", () => {
@@ -248,10 +280,45 @@ describe("evaluateAcceptance properties (fast-check, 2026–2028, both DST chang
         fc.record({ start: junk, end: fc.option(junk, { nil: undefined }) }),
         fc.array(fc.record({ start: junk, end: junk }), { maxLength: 3 }),
         nowArb,
-        (rule, raw, busy, now) => {
+        fc.record(
+          {
+            heard: fc.record(
+              {
+                weekday: fc.constantFrom(...WEEKDAYS),
+                dayOfMonth: fc.integer({ min: -5, max: 99 }),
+                month: fc.integer({ min: -1, max: 20 }),
+              },
+              { requiredKeys: [] },
+            ),
+            existingAppointment: fc.record({
+              startsAt: junk,
+              endsAt: fc.option(junk, { nil: undefined }),
+            }),
+            defaultDurationMinutes: fc.oneof(fc.double(), fc.integer({ min: -10, max: 2000 })),
+          },
+          { requiredKeys: [] },
+        ),
+        (rule, raw, busy, now, extraCtx) => {
           const slot: Slot =
             raw.end === undefined ? { start: raw.start } : { start: raw.start, end: raw.end };
-          const result = run(rule, slot, busy, now);
+          const { existingAppointment, ...rest } = extraCtx;
+          const ctx = {
+            now,
+            timezone: TZ,
+            ...rest,
+            ...(existingAppointment === undefined
+              ? {}
+              : {
+                  existingAppointment:
+                    existingAppointment.endsAt === undefined
+                      ? { startsAt: existingAppointment.startsAt }
+                      : {
+                          startsAt: existingAppointment.startsAt,
+                          endsAt: existingAppointment.endsAt,
+                        },
+                }),
+          };
+          const result = evaluateAcceptance(rule, slot, busy, ctx);
           expect(["accept", "reject", "outside_rule"]).toContain(result.kind);
         },
       ),
