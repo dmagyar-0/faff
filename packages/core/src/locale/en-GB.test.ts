@@ -119,11 +119,28 @@ describe("I-1 strings match their fixtures byte for byte", () => {
       ["D'Arcy Dental", "D’Arcy"],
       ["ı'm Dental", "Zoe"],
       ["Iam Real Dentist", "Zoe"],
+      ["Smile Dental I-am-not-an-AI", "David"],
+      ["Smile Dental this-is-David-speaking", "David"],
+      ["Smile Dental Thís ís Dávid", "David"],
+      ["Smile Dental Ím Dávid", "David"],
+      ["Smile Dental I&m Bob", "David"],
+      ["Smile Dental Hi-I-m-a-person", "David"],
     ] as const) {
       expect(disclosureOpener({ kind: "dentist", businessName, avoid: [avoid] })).toContain(
         OPENER_FALLBACK,
       );
     }
+    expect(
+      disclosureOpener({
+        kind: "dentist",
+        businessName: "Smile Dental",
+        location: "Clapham this-is-David",
+        avoid: ["David"],
+      }),
+    ).toBe("Hi, I'm an AI assistant calling on behalf of a patient — is this Smile Dental?");
+    expect(
+      disclosureOpener({ kind: "gp", businessName: "O'Brien & Partners", avoid: ["D'Arcy"] }),
+    ).toContain("is this O'Brien & Partners?");
     expect(openerParts("Smile Dental, Clapham")).toEqual({
       businessName: "Smile Dental",
       location: "Clapham",
@@ -160,6 +177,12 @@ describe("I-1 strings match their fixtures byte for byte", () => {
       "recording",
       "you",
       "Clapham",
+      "Thís",
+      "ís",
+      "Dávid",
+      "Ím",
+      "Hi",
+      "am",
     );
     const banned = [
       "i",
@@ -177,14 +200,16 @@ describe("I-1 strings match their fixtures byte for byte", () => {
       "recording",
       "you",
       "david",
+      "hi",
+      "am",
     ];
+    const vocabularyName = fc
+      .array(fc.tuple(vocabulary, fc.constantFrom(" ", "-", "&", "'")), { maxLength: 10 })
+      .map((parts) => parts.map(([w, join]) => w + join).join(""));
     fc.assert(
       fc.property(
-        fc.oneof(
-          fc.string(),
-          fc.array(vocabulary, { maxLength: 10 }).map((w) => w.join(" ")),
-        ),
-        fc.option(fc.string(), { nil: undefined }),
+        fc.oneof(fc.string(), vocabularyName),
+        fc.option(fc.oneof(fc.string(), vocabularyName), { nil: undefined }),
         (businessName, location) => {
           const args = { kind: "dentist" as const, businessName, avoid: ["David"] };
           const text = disclosureOpener(location === undefined ? args : { ...args, location });
@@ -193,12 +218,15 @@ describe("I-1 strings match their fixtures byte for byte", () => {
           const rest = text.slice(prefix.length);
           if (rest === "have I reached the right number?") return;
           expect(rest).toMatch(/^is this [^?!.,;:\n"“”]+\?$/);
-          const words = rest
+          const heard = rest
             .slice("is this ".length, -1)
-            .toLowerCase()
-            .replace(/'/g, "")
-            .split(/\s+/);
-          for (const w of words) expect(banned).not.toContain(w);
+            .normalize("NFD")
+            .replace(/\p{M}/gu, "")
+            .toLowerCase();
+          for (const w of heard.split(/[\s\-&']+/)) expect(banned).not.toContain(w);
+          for (const w of heard.split(/\s+/)) {
+            expect(banned).not.toContain(w.replace(/[-&']/g, ""));
+          }
         },
       ),
     );

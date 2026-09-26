@@ -107,22 +107,38 @@ const nameWords = (text: string): string[] =>
     .split(/\s+/)
     .filter((w) => w !== "");
 
+/**
+ * How a word may be heard: lower case, accents and i-like letters folded ("Ím" and "ı'm" are
+ * "im"), and each piece between `- & '` as well as the pieces run together ("I-am-not" is "i",
+ * "am", "not" and "iamnot"; "I'm" is "i", "m" and "im"). A word is refused if any is banned.
+ */
+const spokenForms = (word: string): string[] => {
+  const folded = word
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/[\u0131\u0269\u01C0\u0196]/g, "i");
+  const pieces = folded.split(/[-&']+/).filter((w) => w !== "");
+  return [...pieces, pieces.join("")];
+};
+
 export const openerName = (name: string, avoid: readonly string[] = []): string | undefined => {
   const words = nameWords(name);
   const kept = words.slice(0, OPENER_NAME_MAX.words).join(" ");
-  // Dotless and other i-like letters read as "i" ("ı'm" is "I'm").
-  const bare = (w: string): string =>
-    w
-      .toLowerCase()
-      .replace(/[\u0131\u0269\u01C0\u0196]/g, "i")
-      .replace(/'/g, "");
-  // Each avoided name goes through the same steps, so "Mary Anne" and "D’Arcy" are caught.
-  const banned = new Set([...CLAUSE_WORDS, ...avoid.flatMap(nameWords).map(bare)]);
+  // Each avoided name goes through the same steps, so "Mary Anne" and "D’Arcy" are caught. Its
+  // one- and two-letter pieces (the "D" of "D'Arcy") aren't banned on their own.
+  const banned = new Set([
+    ...CLAUSE_WORDS,
+    ...avoid
+      .flatMap(nameWords)
+      .flatMap(spokenForms)
+      .filter((f) => f.length > 2),
+  ]);
   if (
     kept === "" ||
     kept.length > OPENER_NAME_MAX.chars ||
     words.length > OPENER_NAME_MAX.words ||
-    words.some((w) => banned.has(bare(w)) || banned.has(bare(w).replace(/s$/, "")))
+    words.some((w) => spokenForms(w).some((f) => banned.has(f) || banned.has(f.replace(/s$/, ""))))
   ) {
     return undefined;
   }

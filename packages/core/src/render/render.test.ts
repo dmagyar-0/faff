@@ -74,7 +74,7 @@ describe("briefCard: what spec 02 says the card must show", () => {
   const text = card.text;
 
   it.each([
-    ["the verb and business", "Reschedule at Smile Dental, Clapham (dentist)"],
+    ["the verb and business", "Reschedule at “Smile Dental, Clapham” (dentist)"],
     ["who it's for", "for David"],
     ["the opener, with the noun from the business kind", "calling on behalf of a patient"],
     ["the channel and why", "By phone, because phone is the default"],
@@ -273,7 +273,7 @@ describe("acceptanceRuleText", () => {
   it.each([
     [
       rule({}),
-      "Accepts weekdays 09:00–12:00, from Thu 1 Oct 2026 to Sat 31 Oct 2026. Takes the earliest. Doesn't check your calendar.",
+      "Accepts weekdays 09:00–12:00, from Thu 1 Oct 2026 to Sat 31 Oct 2026. Takes the earliest it's offered. Doesn't check your calendar.",
     ],
     [
       rule({
@@ -315,7 +315,7 @@ describe("acceptanceRuleText", () => {
         minNoticeHours: 24,
         practitioner: { mustBe: "Dr Patel", avoid: ["Dr Jones", "Dr Lee"] },
       }),
-      "Accepts weekends 22:00–02:00 (overnight), on Sat 3 Oct 2026; or Mon 5 Oct 2026 09:00–12:00; or Mon 5 Oct 2026 22:00 to Tue 6 Oct 2026 01:00; or Mon, Wed or Fri 16:00–18:00, from Thu 1 Oct 2026 to Wed 14 Oct 2026; or any day 08:00–09:00, from Thu 1 Oct 2026 to Fri 2 Oct 2026. Takes the latest. Avoids clashes with your calendar, with 30 minutes either side. Needs at least 24 hours' notice. Only with Dr Patel. Not with Dr Jones or Dr Lee.",
+      "Accepts weekends 22:00–02:00 (overnight), on Sat 3 Oct 2026; or Mon 5 Oct 2026 09:00–12:00; or Mon 5 Oct 2026 22:00 to Tue 6 Oct 2026 01:00; or Mon, Wed or Fri 16:00–18:00, from Thu 1 Oct 2026 to Wed 14 Oct 2026; or any day 08:00–09:00, from Thu 1 Oct 2026 to Fri 2 Oct 2026. Takes the latest it's offered. Avoids clashes with your calendar, with 30 minutes either side. Needs at least 24 hours' notice. Only with Dr Patel. Not with Dr Jones or Dr Lee.",
     ],
     [
       rule({
@@ -324,7 +324,7 @@ describe("acceptanceRuleText", () => {
         preference: { closestTo: "2026-10-06T17:00:00+01:00" },
         minNoticeHours: 1,
       }),
-      "Accepts weekdays 09:00–12:00, from Thu 1 Oct 2026 to Sat 31 Oct 2026. Takes the one closest to Tue 6 Oct 2026 17:00. Avoids clashes with your calendar. Needs at least 1 hour's notice.",
+      "Accepts weekdays 09:00–12:00, from Thu 1 Oct 2026 to Sat 31 Oct 2026. Takes the one offered closest to Tue 6 Oct 2026 17:00. Avoids clashes with your calendar. Needs at least 1 hour's notice.",
     ],
   ])("%#", (r, expected) => {
     expect(acceptanceRuleText(r, TZ)).toBe(expected);

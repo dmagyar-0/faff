@@ -183,7 +183,7 @@ export const briefCard = (brief: Brief): BriefCard => {
   sections.push({
     title: "What",
     lines: [
-      `${VERB[brief.verb]} at ${brief.business.displayName} (${KIND[brief.business.kind]}), for ${brief.forPerson.firstName}.`,
+      `${VERB[brief.verb]} at “${quoted(brief.business.displayName)}” (${KIND[brief.business.kind]}), for ${brief.forPerson.firstName}.`,
       ...disclosureWords(brief),
     ],
   });

@@ -64,7 +64,7 @@ const windowText = (window: Window, timezone: string): string => {
 export const oneLine = (text: string): string => text.replace(/\s+/g, " ").trim();
 
 /**
- * e.g. "Accepts weekdays 09:00–12:00, from Thu 1 Oct 2026 to Sat 31 Oct 2026. Takes the earliest.
+ * e.g. "Accepts weekdays 09:00–12:00, from Thu 1 Oct 2026 to Sat 31 Oct 2026. Takes the earliest it's offered.
  * Avoids clashes with your calendar, with 30 minutes either side. Needs at least 24 hours'
  * notice. Only with Dr Patel."
  */
@@ -74,10 +74,10 @@ export const acceptanceRuleText = (rule: AcceptanceRule, timezone: string): stri
   const pref = rule.preference;
   sentences.push(
     pref === "earliest"
-      ? "Takes the earliest."
+      ? "Takes the earliest it's offered."
       : pref === "latest"
-        ? "Takes the latest."
-        : `Takes the one closest to ${writeDateTime(Temporal.Instant.from(pref.closestTo), timezone)}.`,
+        ? "Takes the latest it's offered."
+        : `Takes the one offered closest to ${writeDateTime(Temporal.Instant.from(pref.closestTo), timezone)}.`,
   );
   sentences.push(
     rule.avoidCalendarConflicts
