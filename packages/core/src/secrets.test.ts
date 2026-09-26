@@ -72,6 +72,14 @@ const POSITIVE: readonly (readonly [string, SecretKind])[] = [
   ["my PIN's 4471", "secret_value"],
   ["2FA code 482913", "secret_value"],
   ["login code: 551 902", "secret_value"],
+  ["password - hunter2", "secret_value"],
+  ["password – hunter2", "secret_value"],
+  ["memorable word - sunshine", "secret_value"],
+  ["security answer - fluffy", "secret_value"],
+  ["my first pet was Rex", "secret_value"],
+  ["place of birth is Leeds", "secret_value"],
+  ["memorable place is Paris", "secret_value"],
+  ["passcode is abcd", "secret_value"],
 ];
 
 /** Every one of these must pass: ordinary notes that only look like numbers or mention secrets. */
@@ -133,6 +141,17 @@ const FALSE_POSITIVES: readonly string[] = [
   "the password field is case sensitive",
   "IBAN GB00NWBK60161331926819 is invalid",
   "GB29 is a region code",
+  "patient account 88213441",
+  "password is fine",
+  "password was sent by text",
+  "the password was forgotten",
+  "password: none",
+  "Password: n/a",
+  "07197 459272 020 8340 3193",
+  "NHS 943 476 5919 dob 12 03 1985",
+  "slots 27 05 1300 21 05 0900",
+  "27.01.2026 15.48 2676",
+  "call ".repeat(3) + "020 7946 0000",
   // Ordinary notes.
   "ask for the hygienist too; patient since 2019",
   "prefers mornings, not Mondays",
@@ -170,34 +189,71 @@ describe("rejectSecrets", () => {
   it("does not flag a card-length number that fails Luhn, or one outside the card ranges", () => {
     expect(rejectSecrets("4111111111111112").ok).toBe(true);
     expect(rejectSecrets("1111111111111117").ok).toBe(true);
-    expect(rejectSecrets("4111  1111  1111  1111").ok).toBe(true);
   });
 
-  it("property: any Luhn-valid 16-digit number starting 4 is caught, however it's grouped", () => {
-    const luhnDigit = (body: number[]): number => {
-      const sum = body
-        .slice()
-        .reverse()
-        .reduce((acc, d, i) => {
-          const x = i % 2 === 0 ? d * 2 : d;
-          return acc + (x > 9 ? x - 9 : x);
-        }, 0);
-      return (10 - (sum % 10)) % 10;
-    };
+  it("catches a card grouped by double spaces or tabs", () => {
+    expect(rejectSecrets("4111  1111  1111  1111").ok).toBe(false);
+    expect(rejectSecrets("4111\t1111\t1111\t1111").ok).toBe(false);
+  });
+
+  it("stays fast on long runs of digits and spaces (no blow-up)", () => {
+    for (const text of [
+      "12-34-56 ".repeat(20_000),
+      "1 ".repeat(50_000),
+      `password${" ".repeat(100_000)}x`,
+    ]) {
+      const started = Date.now();
+      rejectSecrets(text);
+      rejectProfileValues(text, { contact_phone: "+447700900123", nhs_number: "9434765919" });
+      expect(Date.now() - started).toBeLessThan(2_000);
+    }
+  });
+
+  const luhnDigit = (body: number[]): number => {
+    const sum = body
+      .slice()
+      .reverse()
+      .reduce((acc, d, i) => {
+        const x = i % 2 === 0 ? d * 2 : d;
+        return acc + (x > 9 ? x - 9 : x);
+      }, 0);
+    return (10 - (sum % 10)) % 10;
+  };
+  const cardDigits = fc
+    .array(fc.integer({ min: 0, max: 9 }), { minLength: 14, maxLength: 14 })
+    .map((body) => {
+      const digits = [4, ...body];
+      return [...digits, luhnDigit(digits)].join("");
+    });
+
+  it("property: a Luhn-valid 16-digit number starting 4 is caught, whatever separates its blocks", () => {
     fc.assert(
       fc.property(
-        fc.array(fc.integer({ min: 0, max: 9 }), { minLength: 14, maxLength: 14 }),
-        fc.array(fc.constantFrom("", " ", "-"), { minLength: 15, maxLength: 15 }),
+        cardDigits,
+        fc.array(fc.constantFrom("", " ", "-", "  ", ".", "\t"), { minLength: 3, maxLength: 3 }),
+        (card, seps) => {
+          const blocks = card.match(/\d{4}/g) ?? [];
+          const text = blocks.map((b, i) => `${b}${seps[i] ?? ""}`).join("");
+          expect(rejectSecrets(`pay with ${text} please`)).toMatchObject({
+            ok: false,
+            reason: "card_number",
+          });
+        },
+      ),
+    );
+  });
+
+  it("property: a card grouped as printed is caught with other digits written around it", () => {
+    fc.assert(
+      fc.property(
+        cardDigits,
+        fc.constantFrom(" ", "-"),
         fc.array(fc.stringMatching(/^\d{1,4}$/), { maxLength: 2 }),
         fc.array(fc.stringMatching(/^\d{1,4}$/), { maxLength: 2 }),
-        (body, seps, before, after) => {
-          const digits = [4, ...body];
-          const all = [...digits, luhnDigit(digits)];
-          const card = all
-            .map((d, i) => `${d}${i < all.length - 1 ? (seps[i] ?? "") : ""}`)
-            .join("");
+        (card, sep, before, after) => {
+          const grouped = (card.match(/\d{4}/g) ?? []).join(sep);
           // Digit groups before and after it, as an expiry or a reference would be written.
-          const text = [...before, card, ...after].join(" ");
+          const text = [...before, grouped, ...after].join(" ");
           expect(rejectSecrets(`pay with ${text} please`)).toMatchObject({
             ok: false,
             reason: "card_number",

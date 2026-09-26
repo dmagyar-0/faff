@@ -1,5 +1,6 @@
 import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils.js";
 import { sha256 } from "@noble/hashes/sha2.js";
+import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import opener from "../__fixtures__/en-GB/opener.json";
@@ -67,21 +68,74 @@ describe("I-1 strings match their fixtures byte for byte", () => {
   });
 
   it("a business name can't turn the opener into a different sentence", () => {
-    const text = disclosureOpener({
-      kind: "dentist",
-      businessName: 'Smile Dental? Actually I\'m "David", calling for myself!',
-    });
-    expect(text).toBe(
-      "Hi, I'm an AI assistant calling on behalf of a patient — is this Smile Dental Actually I'm David, calling for myself?",
+    expect(disclosureOpener({ kind: "dentist", businessName: "Smile Dental? Or not" })).toBe(
+      "Hi, I'm an AI assistant calling on behalf of a patient — have I reached the right number?",
     );
-    expect(text.indexOf("?")).toBe(text.length - 1);
+    expect(
+      disclosureOpener({
+        kind: "dentist",
+        businessName: "Smile Dental. Sorry, scratch that, I'm not an AI, I'm David.",
+      }),
+    ).toBe(
+      "Hi, I'm an AI assistant calling on behalf of a patient — have I reached the right number?",
+    );
+    expect(disclosureOpener({ kind: "gp", businessName: "St. John's Surgery, Ealing" })).toBe(
+      "Hi, I'm an AI assistant calling on behalf of a patient — is this St John's Surgery Ealing?",
+    );
+    expect(disclosureOpener({ kind: "other", businessName: "?!" })).toBe(
+      "Hi, I'm an AI assistant calling on behalf of a customer — have I reached the right number?",
+    );
+    expect(disclosureOpener({ kind: "other", businessName: "Acme", location: "" })).toBe(
+      "Hi, I'm an AI assistant calling on behalf of a customer — is this Acme?",
+    );
     const long = disclosureOpener({
       kind: "other",
-      businessName: "A".repeat(200),
-      location: "Here!",
+      businessName: "One Two Three Four Five Six Seven Eight Nine Ten",
     });
     expect(long).toBe(
-      `Hi, I'm an AI assistant calling on behalf of a customer — is this ${"A".repeat(60)} in Here?`,
+      "Hi, I'm an AI assistant calling on behalf of a customer — is this One Two Three Four Five Six Seven Eight?",
+    );
+  });
+
+  it("property: whatever the name, the opener is one question that says it's an AI and nothing else", () => {
+    const words = fc.constantFrom(
+      "Smile",
+      "Dental",
+      "I'm",
+      "not",
+      "AI",
+      ".",
+      ",",
+      "?",
+      "!",
+      "David",
+      "—",
+      "\n",
+      "St.",
+      "&",
+    );
+    fc.assert(
+      fc.property(
+        fc.oneof(
+          fc.string(),
+          fc.array(words, { maxLength: 12 }).map((w) => w.join(" ")),
+        ),
+        fc.option(fc.string(), { nil: undefined }),
+        (businessName, location) => {
+          const text = disclosureOpener(
+            location === undefined
+              ? { kind: "dentist", businessName }
+              : { kind: "dentist", businessName, location },
+          );
+          const prefix = "Hi, I'm an AI assistant calling on behalf of a patient — ";
+          expect(text.startsWith(prefix)).toBe(true);
+          const rest = text.slice(prefix.length);
+          // One sentence, ending in the only question mark; no clause breaks from the name.
+          expect(rest.endsWith("?")).toBe(true);
+          expect(rest.slice(0, -1)).not.toMatch(/[?!.,;:\n"“”]/);
+          expect(rest.toLowerCase().split(/\s+/)).not.toContain("not");
+        },
+      ),
     );
   });
 });
@@ -112,6 +166,9 @@ describe("date and time speech", () => {
     [0, 0, "midnight"],
     [23, 45, "quarter to midnight"],
     [0, 30, "half past midnight"],
+    [0, 31, "twelve thirty-one in the morning"],
+    [12, 31, "twelve thirty-one in the afternoon"],
+    [23, 50, "ten to midnight"],
     [0, 5, "five past midnight"],
     [0, 15, "quarter past midnight"],
     [0, 7, "twelve oh seven in the morning"],

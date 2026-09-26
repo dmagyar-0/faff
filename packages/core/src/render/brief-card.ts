@@ -8,6 +8,7 @@ import {
   APPROVAL_CARD_REMINDER,
   CALLEE_NOUN,
   disclosureOpener,
+  EMAIL_DISCLOSURE,
   writeDateTime,
 } from "../locale/en-GB";
 import type { ProfileField } from "../primitives";
@@ -84,6 +85,23 @@ const disclosureLines = (brief: Brief): string[] => {
   return lines;
 };
 
+/**
+ * How Faff says it's an AI (I-1): the call's fixed opener, or for email the fixed signature, and
+ * the opener too when an email task may switch to phone.
+ */
+const disclosureWords = (brief: Brief): string[] => {
+  const opener = disclosureOpener({
+    kind: brief.business.kind,
+    businessName: brief.business.displayName,
+  });
+  if (brief.channel.chosen === "phone") return [`Faff opens the call with: “${opener}”`];
+  const lines = [`Every email is signed: “${EMAIL_DISCLOSURE}”`];
+  if (brief.business.contact.phone !== undefined) {
+    lines.push(`If it switches to phone, Faff opens the call with: “${opener}”`);
+  }
+  return lines;
+};
+
 /** "P7D" → "7 days", "PT90M" → "90 minutes", "P1DT12H" → "1 day 12 hours". */
 export const durationWords = (duration: string): string => {
   const d = Temporal.Duration.from(duration);
@@ -110,7 +128,10 @@ const contactLines = (brief: Brief): string[] => {
         : `found on ${c.evidence.url}, which says: “${c.evidence.quote}”`;
   // The Brief refinement guarantees the chosen channel has its value.
   const lines = [`${value}, ${where}.`];
-  if (brief.channel.chosen === "phone") {
+  if (brief.channel.chosen === "email" && c.phone !== undefined) {
+    lines.push(`If it switches to phone, Faff calls ${c.phone}.`);
+  }
+  if (c.phone !== undefined) {
     lines.push(
       brief.business.contactPolicy.autoSwitchOnWrongNumber
         ? "If this number turns out to be wrong, Faff may switch to one other number it can verify from the business's own site, the NHS directory or your saved details."
@@ -142,7 +163,7 @@ export const briefCard = (brief: Brief): BriefCard => {
     title: "What",
     lines: [
       `${VERB[brief.verb]} at ${brief.business.displayName} (${KIND[brief.business.kind]}), for ${brief.forPerson.firstName}.`,
-      `Faff opens the call with: “${disclosureOpener({ kind: brief.business.kind, businessName: brief.business.displayName })}”`,
+      ...disclosureWords(brief),
     ],
   });
 
@@ -184,7 +205,9 @@ export const briefCard = (brief: Brief): BriefCard => {
   } else {
     const lines = [acceptanceRuleText(brief.acceptance, tz)];
     if (brief.verb === "reschedule") {
-      lines.push("Your current appointment is released only once a new one is confirmed.");
+      lines.push(
+        "Faff asks them to cancel your current appointment only once a new one is confirmed.",
+      );
     }
     sections.push({ title: "Acceptable times", lines });
   }
@@ -200,7 +223,9 @@ export const briefCard = (brief: Brief): BriefCard => {
   });
 
   if (brief.notesForAgent !== undefined && brief.notesForAgent !== "") {
-    sections.push({ title: "Notes for the agent (context only)", lines: [brief.notesForAgent] });
+    // One line, so a note can't look like more of the card.
+    const note = brief.notesForAgent.replace(/\s+/g, " ").trim();
+    sections.push({ title: "Notes for the agent (context only)", lines: [note] });
   }
 
   sections.push({ title: "Remember", lines: [APPROVAL_CARD_REMINDER] });

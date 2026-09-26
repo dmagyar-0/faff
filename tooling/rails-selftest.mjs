@@ -224,6 +224,7 @@ const guarded = [
   "packages/core/src/render/brief-card.ts",
   "packages/core/src/render/acceptance-rule.ts",
   "packages/core/src/__fixtures__/en-GB/opener.json",
+  "packages/core/src/__fixtures__/en-GB/signature.json",
   ".github/CODEOWNERS",
 ];
 const codeowners = fs.readFileSync(path.join(root, ".github/CODEOWNERS"), "utf8");

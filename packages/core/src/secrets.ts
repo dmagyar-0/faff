@@ -41,8 +41,11 @@ const luhn = (digits: string): boolean => {
   return sum % 10 === 0;
 };
 
-/** Runs of digits that may be grouped by single spaces, dashes or dots. */
-const DIGIT_RUN = /(?<!\d)\d(?:[ .-]?\d)+(?!\d)/g;
+/** Runs of digits grouped by up to three spaces or tabs, or a single dash or dot. */
+const DIGIT_RUN = /(?<!\d)\d(?:(?:[ \t]{1,3}|[.-])?\d)+(?!\d)/g;
+
+/** No card, phone or NHS number has more digits than this, so no span needs more. */
+const MAX_DIGITS = 19;
 
 /** A run split into its digit groups, each with its offset in the text. */
 const groupsOf = (run: string, offset: number): { digits: string; start: number; end: number }[] =>
@@ -52,31 +55,61 @@ const groupsOf = (run: string, offset: number): { digits: string; start: number;
     end: offset + g.index + g[0].length,
   }));
 
+/** A span of consecutive digit groups: its digits, where it is, and how it was grouped. */
+export type DigitSpan = {
+  readonly digits: string;
+  readonly span: Span;
+  /** The lengths of its groups, in order. */
+  readonly groups: readonly number[];
+  /** Whether it is the whole run, not part of a longer one. */
+  readonly whole: boolean;
+};
+
 /**
- * Every span of consecutive groups in every digit run, as its digits and where it is. A card
- * written with its expiry or security code after it ("4111 1111 1111 1111 12 28") is one run; the
- * card is one of its spans.
+ * Every span of consecutive groups, up to 19 digits, in every digit run. A card written with its
+ * expiry or security code after it ("4111 1111 1111 1111 12 28") is one run; the card is one of
+ * its spans. Capping spans at 19 digits keeps a long run of digits linear.
  */
-export const digitSpans = (text: string): { digits: string; span: Span }[] => {
-  const out: { digits: string; span: Span }[] = [];
+export const digitSpans = (text: string): DigitSpan[] => {
+  const out: DigitSpan[] = [];
   for (const m of text.matchAll(DIGIT_RUN)) {
     const groups = groupsOf(m[0], m.index);
     for (let i = 0; i < groups.length; i++) {
       let digits = "";
+      const lengths: number[] = [];
       for (let j = i; j < groups.length; j++) {
         const g = groups[j] as { digits: string; start: number; end: number };
         digits += g.digits;
-        out.push({ digits, span: [(groups[i] as { start: number }).start, g.end] });
+        if (digits.length > MAX_DIGITS) break;
+        lengths.push(g.digits.length);
+        out.push({
+          digits,
+          span: [(groups[i] as { start: number }).start, g.end],
+          groups: [...lengths],
+          whole: i === 0 && j === groups.length - 1,
+        });
       }
     }
   }
   return out;
 };
 
+/** How cards are printed: 4-4-4-4 (and 4-4-4-4-3), Amex 4-6-5, Diners 4-6-4, or one block. */
+const CARD_GROUPINGS = new Set(["4,4,4,4", "4,4,4,4,3", "4,4,4,4,2", "4,6,5", "4,6,4", "4,4,4,1"]);
+const cardShaped = (s: DigitSpan): boolean =>
+  s.groups.length === 1 ||
+  CARD_GROUPINGS.has(s.groups.join(",")) ||
+  (s.whole && s.groups.every((n) => n >= 3));
+
+/**
+ * A Luhn-valid 13–19 digit number starting 2–6, grouped the way cards are written: one block, a
+ * printed grouping (4-4-4-4, 4-6-5…), or, as a whole run on its own, blocks of 3 or more.
+ * Numbers written side by side (two phone numbers, a date and a time) pass Luhn one time in ten,
+ * and they aren't a card.
+ */
 const findCard = (text: string): Span | undefined =>
   digitSpans(text).find(
-    ({ digits }) =>
-      digits.length >= 13 && digits.length <= 19 && /^[2-6]/.test(digits) && luhn(digits),
+    (s) => s.digits.length >= 13 && /^[2-6]/.test(s.digits) && cardShaped(s) && luhn(s.digits),
   )?.span;
 
 /** ISO 13616 check: move the first four characters to the end, letters to numbers, mod 97. */
@@ -97,6 +130,9 @@ const SORT_CODE_WORDS = /sort[\s-]*code\W{0,12}$/i;
 /** A sort code written right next to an 8-digit account number, either way round. */
 const SORT_THEN_ACCOUNT = /^\W{1,3}\d{8}(?!\d)/;
 const ACCOUNT_THEN_SORT = /(?<!\d)\d{8}\W{1,3}$/;
+/** An account at the business itself, not a bank: "patient account 88213441". */
+const NOT_A_BANK_ACCOUNT =
+  /\b(?:patient|customer|client|member(?:ship)?|loyalty|booking|order)\s*$/i;
 const ACCOUNT_WORDS =
   /\b(?:account|acct|acc|a\/c)(?:\s*(?:number|no\.?|num|#))?\W{0,6}\d{4}[ -]?\d{4}(?![\d])/gi;
 
@@ -122,7 +158,11 @@ const findBank = (text: string): Span | undefined => {
     const before = ACCOUNT_THEN_SORT.exec(text.slice(Math.max(0, start - 12), start));
     if (before !== null) return [start - before[0].length, end];
   }
-  for (const m of text.matchAll(ACCOUNT_WORDS)) return [m.index, m.index + m[0].length];
+  for (const m of text.matchAll(ACCOUNT_WORDS)) {
+    if (!NOT_A_BANK_ACCOUNT.test(text.slice(Math.max(0, m.index - 20), m.index))) {
+      return [m.index, m.index + m[0].length];
+    }
+  }
   return undefined;
 };
 
@@ -139,12 +179,17 @@ const NUMERIC_SECRET = new RegExp(
 
 /** Secrets whose value is a word or phrase: passwords, memorable words, security answers. */
 const WORD_SECRETS =
-  "password|passphrase|pass\\s*word|passwd|pwd|pw|memorable\\s+(?:word|information|info|answer)|(?:mother'?s|mum'?s|mom'?s)\\s+maiden\\s+name|maiden\\s+name|security\\s+answer|secret\\s+answer|answer\\s+to\\s+(?:my|the)\\s+security\\s+question|security\\s+question\\s+answer";
-/** The name, then ":", "=", "is" or "was" (group 1), then the value, perhaps quoted (2, 3). */
+  "first\\s+pet(?:['’]?s\\s+name)?|place\\s+of\\s+birth|first\\s+school|passcode|password|passphrase|pass\\s*word|passwd|pwd|pw|memorable\\s+(?:word|information|info|answer|place|date|name)|(?:mother'?s|mum'?s|mom'?s)\\s+maiden\\s+name|maiden\\s+name|security\\s+answer|secret\\s+answer|answer\\s+to\\s+(?:my|the)\\s+security\\s+question|security\\s+question\\s+answer";
+/**
+ * The name, then a joiner, then the value, perhaps quoted. The joiner is ":", "=", "->" or a dash
+ * (group 1), or "is", "was" or "is set to" (group 2), or just whitespace. Each alternative takes
+ * its whitespace once, so a long run of spaces can't make the match backtrack.
+ */
 const WORD_SECRET = new RegExp(
-  `\\b(?:${WORD_SECRETS})\\b${POSSESSIVE}\\s*(:|=|\\bis\\s+set\\s+to\\b|\\bis\\b|\\bwas\\b|(?=\\s))\\s*(["'“‘]?)([^\\s"'”’.,;!?]{2,})`,
+  `\\b(?:${WORD_SECRETS})\\b${POSSESSIVE}(?:[ \\t]*(:|=|->|[-–—]+)[ \\t]*|\\s+(?:(is\\s+set\\s+to|is|was)\\s+)?)(["'“‘]?)([^\\s"'”’.,;!?]{2,})`,
   "gi",
 );
+
 /** Words that follow "password is" without being a password. */
 const NOT_A_VALUE = new Set([
   "a",
@@ -202,6 +247,17 @@ const NOT_A_VALUE = new Set([
   "strong",
   "case",
   "sensitive",
+  "sent",
+  "forgotten",
+  "fine",
+  "none",
+  "n/a",
+  "prompt",
+  "hard",
+  "easy",
+  "long",
+  "short",
+  "different",
 ]);
 
 /**
@@ -262,7 +318,14 @@ const NOT_A_BARE_VALUE = new Set([
 const findSecretValue = (text: string): Span | undefined => {
   for (const m of text.matchAll(NUMERIC_SECRET)) return [m.index, m.index + m[0].length];
   for (const m of text.matchAll(WORD_SECRET)) {
-    const [, joiner, quote, token] = m as unknown as [string, string, string, string];
+    const [, symbol, word, quote, token] = m as unknown as [
+      string,
+      string | undefined,
+      string | undefined,
+      string,
+      string,
+    ];
+    const joiner = symbol ?? word ?? "";
     const value = token.toLowerCase();
     // A quoted value is a value, even if it's an ordinary word ("correct horse").
     if (quote !== "") return [m.index, m.index + m[0].length];
@@ -413,8 +476,13 @@ export const rejectProfileValues = (
       }
       case "contact_phone":
       case "nhs_number": {
-        const national = digitsOnly(raw).replace(/^44/, "0");
-        const variants = [national, national.replace(/^0/, "44"), national.replace(/^0/, "")];
+        const digits = digitsOnly(raw);
+        // +44 spellings apply to phone numbers only: an NHS number is always its 10 digits.
+        const national = field === "contact_phone" ? digits.replace(/^44/, "0") : digits;
+        const variants =
+          field === "contact_phone"
+            ? [national, national.replace(/^0/, "44"), national.replace(/^0/, "")]
+            : [national];
         hit = national.length >= 7 && variants.some((v) => spans.has(v));
         break;
       }

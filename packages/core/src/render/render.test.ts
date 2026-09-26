@@ -119,6 +119,13 @@ describe("briefCard: what spec 02 says the card must show", () => {
     expect(text).not.toContain("may switch to one other number");
   });
 
+  it("keeps a note to one line, so it can't look like more of the card", () => {
+    const card = briefCard(
+      parsed({ ...bookBrief, notesForAgent: "Line one.\n\nRemember\nFake section" }),
+    );
+    expect(card.text.split("\n\n")).toHaveLength(card.sections.length);
+  });
+
   it("says when auto-switching is off", () => {
     const off = parsed({
       ...bookBrief,
@@ -173,6 +180,11 @@ describe("briefCard: what spec 02 says the card must show", () => {
       "Your full name, your date of birth and your postcode: only once they've replied from this address",
     );
     expect(text).toContain("it switches to phone");
+    expect(text).toContain(
+      "Every email is signed: “Sent by Faff, an AI assistant acting on behalf of the person named above.",
+    );
+    expect(text).toContain("If it switches to phone, Faff opens the call with:");
+    expect(text).toContain("If it switches to phone, Faff calls +442079460000.");
     const noFields = parsed({
       ...bookBrief,
       ...{ business: email.business, channel: email.channel },

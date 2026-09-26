@@ -3,7 +3,7 @@
 exports[`briefCard: snapshots, one per verb > an email Brief with a web-found contact, notes and no disclosable fields 1`] = `
 "What
 Book at Smile Dental, Clapham (vet), for David.
-Faff opens the call with: “Hi, I'm an AI assistant calling on behalf of a client — is this Smile Dental, Clapham?”
+Every email is signed: “Sent by Faff, an AI assistant acting on behalf of the person named above. Faff is not that person and cannot answer security questions for them.”
 
 How
 By email, because this business has recently preferred email.
@@ -37,7 +37,7 @@ Faff will say it's an AI. Some businesses will decline."
 exports[`briefCard: snapshots, one per verb > book 1`] = `
 "What
 Book at Smile Dental, Clapham (dentist), for David.
-Faff opens the call with: “Hi, I'm an AI assistant calling on behalf of a patient — is this Smile Dental, Clapham?”
+Faff opens the call with: “Hi, I'm an AI assistant calling on behalf of a patient — is this Smile Dental Clapham?”
 
 How
 By phone, because phone is the default.
@@ -66,7 +66,7 @@ Faff will say it's an AI. Some businesses will decline."
 exports[`briefCard: snapshots, one per verb > cancel 1`] = `
 "What
 Cancel at Smile Dental, Clapham (dentist), for David.
-Faff opens the call with: “Hi, I'm an AI assistant calling on behalf of a patient — is this Smile Dental, Clapham?”
+Faff opens the call with: “Hi, I'm an AI assistant calling on behalf of a patient — is this Smile Dental Clapham?”
 
 How
 By phone, because phone is the default.
@@ -98,7 +98,7 @@ Faff will say it's an AI. Some businesses will decline."
 exports[`briefCard: snapshots, one per verb > paired cancel 1`] = `
 "What
 Cancel at Smile Dental, Clapham (dentist), for David.
-Faff opens the call with: “Hi, I'm an AI assistant calling on behalf of a patient — is this Smile Dental, Clapham?”
+Faff opens the call with: “Hi, I'm an AI assistant calling on behalf of a patient — is this Smile Dental Clapham?”
 
 How
 By phone, because phone is the default.
@@ -130,7 +130,7 @@ Faff will say it's an AI. Some businesses will decline."
 exports[`briefCard: snapshots, one per verb > reschedule 1`] = `
 "What
 Reschedule at Smile Dental, Clapham (dentist), for David.
-Faff opens the call with: “Hi, I'm an AI assistant calling on behalf of a patient — is this Smile Dental, Clapham?”
+Faff opens the call with: “Hi, I'm an AI assistant calling on behalf of a patient — is this Smile Dental Clapham?”
 
 How
 By phone, because phone is the default.
@@ -148,7 +148,7 @@ Wed 14 Oct 2026 09:30 (ref 4417).
 
 Acceptable times
 Accepts weekdays 09:00–12:00, from Thu 1 Oct 2026 to Sat 31 Oct 2026. Takes the earliest. Avoids clashes with your calendar, with 30 minutes either side.
-Your current appointment is released only once a new one is confirmed.
+Faff asks them to cancel your current appointment only once a new one is confirmed.
 
 What Faff may tell them
 Your first name (David) and your full name, your date of birth and your postcode, and only once they've confirmed who they are.

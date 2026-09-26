@@ -44,9 +44,9 @@ These have no enum value and cannot be stored anywhere:
 
 Free-text inputs (chat messages persisted into Briefs, `notesForAgent`, user-business notes) pass through `rejectSecrets()` (`packages/core/src/secrets.ts`), after NFKC normalisation so full-width digits can't slip past. On a match, the write is rejected and the chat agent explains why. It looks for:
 
-- **Card numbers:** 13–19 digits in any grouping of single spaces, dashes or dots, starting 2–6, Luhn-valid, including a card written with its expiry or security code straight after it.
-- **Bank details:** an IBAN that passes its checksum; a sort code with "sort code" just before it or an 8-digit account number directly beside it; or "account number" (or "acct", "a/c") followed by 8 digits. A bare `14-10-26` is a date, not a sort code, even next to a booking reference.
-- **A secret with its value (M1-Q8a):** a secret's name followed by something that looks like its value ("my PIN is 4471", "password: hunter2", "password hunter2", "mother's maiden name is Smith"). A bare mention passes: "they may ask for a PIN — say you don't have it" is exactly the note Faff wants.
+- **Card numbers:** 13–19 digits starting 2–6, Luhn-valid, written as one block, in a printed grouping (4-4-4-4, 4-6-5…) or in blocks of three or more, separated by spaces, tabs, dashes or dots, including a card written with its expiry or security code straight after it. Numbers written side by side in other groupings (two phone numbers, a date and a time) aren't a card.
+- **Bank details:** an IBAN that passes its checksum; a sort code with "sort code" just before it or an 8-digit account number directly beside it; or "account number" (or "acct", "a/c") followed by 8 digits. A bare `14-10-26` is a date, not a sort code; written directly beside an 8-digit number it reads as a sort code and account, and is rejected. An account at the business itself ("patient account 88213441") isn't bank details.
+- **A secret with its value (M1-Q8a):** a secret's name followed by something that looks like its value ("my PIN is 4471", "password: hunter2", "password - hunter2", "password hunter2", "mother's maiden name is Smith", "my first pet was Rex", "place of birth is Leeds"). A bare mention passes: "they may ask for a PIN — say you don't have it" is exactly the note Faff wants.
 
 Both a positive corpus and a false-positive corpus (phone numbers, dates, times, postcodes, booking references, NHS-style numbers, mentions without a value) are tests.
 

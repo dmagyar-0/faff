@@ -40,28 +40,74 @@ export const disclosureOpener = (args: {
   readonly kind: BusinessKind;
   readonly businessName: string;
   readonly location?: string;
-}): string =>
-  `Hi, I'm an AI assistant calling on behalf of a ${CALLEE_NOUN[args.kind]} — is this ` +
-  `${openerName(args.businessName)}${args.location === undefined ? "" : ` in ${openerName(args.location)}`}?`;
+}): string => {
+  const prefix = `Hi, I'm an AI assistant calling on behalf of a ${CALLEE_NOUN[args.kind]} — `;
+  const name = openerName(args.businessName);
+  if (name === undefined) return `${prefix}${OPENER_FALLBACK}`;
+  const place = args.location === undefined ? undefined : openerName(args.location);
+  return `${prefix}is this ${name}${place === undefined ? "" : ` in ${place}`}?`;
+};
 
-/** The longest name the opener will say. Business names are short; anything longer is text. */
-export const OPENER_NAME_MAX = 60;
+/** What the opener asks when the business's name can't be said safely. */
+export const OPENER_FALLBACK = "have I reached the right number?";
+
+/** The most words and characters the opener will say as a name. Anything longer is text. */
+export const OPENER_NAME_MAX = { words: 8, chars: 60 } as const;
 
 /**
- * A name as the fixed opener may say it: letters, digits, spaces and `& ' ’ , . -` only, cut at
- * {@link OPENER_NAME_MAX} characters. A display name can't turn the fixed I-1 line into a
- * different sentence ("Smile Dental? Actually I'm David"): it has no question mark, no quotes
- * and no room.
+ * Words that would let a name speak for itself inside the fixed I-1 line ("Smile Dental. Sorry,
+ * I'm not an AI, I'm David"): first person, negation and what Faff is.
  */
-export const openerName = (name: string): string =>
-  name
+const NOT_IN_A_NAME = new Set([
+  "i",
+  "im",
+  "i'm",
+  "i’m",
+  "me",
+  "my",
+  "myself",
+  "am",
+  "not",
+  "no",
+  "ai",
+  "human",
+  "person",
+  "robot",
+  "bot",
+  "assistant",
+  "calling",
+  "sorry",
+  "actually",
+  "scratch",
+]);
+
+/**
+ * A name as the fixed opener may say it, or `undefined` if it can't be said safely. Letters,
+ * digits, spaces and `& ' ’ -` only, at most {@link OPENER_NAME_MAX}: no full stop, comma or
+ * question mark, so the name can't start a new sentence or clause. A name with first-person,
+ * negating or AI words, or nothing left, falls back to {@link OPENER_FALLBACK}.
+ */
+export const openerName = (name: string): string | undefined => {
+  const words = name
     .normalize("NFKC")
-    .replace(/[^\p{L}\p{N} &'’,.-]+/gu, " ")
-    .replace(/\s+/g, " ")
-    .replace(/ ([,.])/g, "$1")
-    .trim()
-    .slice(0, OPENER_NAME_MAX)
+    .replace(/[^\p{L}\p{N} &'’-]+/gu, " ")
+    .split(/\s+/)
+    .filter((w) => w !== "");
+  const kept = words
+    .slice(0, OPENER_NAME_MAX.words)
+    .join(" ")
+    .slice(0, OPENER_NAME_MAX.chars)
     .trim();
+  if (kept === "" || words.some((w) => NOT_IN_A_NAME.has(w.toLowerCase()))) return undefined;
+  return kept;
+};
+
+/**
+ * The part of the signature that says who is writing: what the approval card shows for email.
+ * It is the start of {@link emailSignature}, so the two can't drift apart.
+ */
+export const EMAIL_DISCLOSURE =
+  "Sent by Faff, an AI assistant acting on behalf of the person named above. Faff is not that person and cannot answer security questions for them.";
 
 /** The inbound voicemail greeting, verbatim from spec 07 (I-1, Q23). */
 export const VOICEMAIL_GREETING =
@@ -72,9 +118,7 @@ export const VOICEMAIL_GREETING =
  * Faff's own domain, which doesn't exist yet (Q-D): the text is fixed, only the domain varies.
  */
 export const emailSignature = (domain: string): string =>
-  "—\n" +
-  "Sent by Faff, an AI assistant acting on behalf of the person named above. Faff is not that person and cannot answer security questions for them. " +
-  `Reply to this email and Faff will pass it on. ${domain}/about-this-email`;
+  `—\n${EMAIL_DISCLOSURE} Reply to this email and Faff will pass it on. ${domain}/about-this-email`;
 
 // --- User-facing capability claims (I-12): re-exported by apps/web/content/claims.ts ---------
 
@@ -207,11 +251,11 @@ export const speakTime = (hour: number, minute: number): string => {
     if (minute % 5 === 0) return `${numberWords(60 - minute)} to ${hourWords(nextHour)}`;
     return `${hourWords(hour)} ${minute < 10 ? `oh ${numberWords(minute)}` : numberWords(minute)}`;
   })();
-  // "quarter to twelve" belongs to the hour it leads into, so name the part of day by that hour.
-  const dayHour = minute === 45 || (minute % 5 === 0 && minute > 30) ? nextHour : hour;
-  if (dayHour === 12 && minute > 30)
-    return `${phrase} midday`.replace(/ twelve midday$/, " midday");
-  if (dayHour === 0 && minute > 30)
+  // "quarter to twelve" belongs to the hour it leads into; "twelve thirty-one" to its own.
+  const toNext = minute === 45 || (minute % 5 === 0 && minute > 30);
+  const dayHour = toNext ? nextHour : hour;
+  if (toNext && dayHour === 12) return `${phrase} midday`.replace(/ twelve midday$/, " midday");
+  if (toNext && dayHour === 0)
     return `${phrase} midnight`.replace(/ twelve midnight$/, " midnight");
   return `${phrase} ${partOfDay(dayHour)}`;
 };
