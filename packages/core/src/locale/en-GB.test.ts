@@ -122,6 +122,10 @@ describe("I-1 strings match their fixtures byte for byte", () => {
       ["Smile Dental I-am-not-an-AI", "David"],
       ["Jo's Salon", "Jo"],
       ["l'm Bob Dental", "David"],
+      ["Smile Dental ɪ ᴀᴍ ʜᴜᴍᴀɴ", "David"],
+      ["Smile Dental ᴛʜɪꜱ ɪꜱ Dᴀᴠɪᴅ", "David"],
+      ["ɴot ᴀɪ", "David"],
+      ["ɪm ʜuman", "David"],
       ["1'm Bob", "David"],
       ["Il'm", "David"],
       ["We're Open Dental", "David"],
@@ -196,6 +200,12 @@ describe("I-1 strings match their fixtures byte for byte", () => {
       "Ím",
       "Hi",
       "am",
+      "ɪ",
+      "ᴀᴍ",
+      "ʜᴜᴍᴀɴ",
+      "ᴛʜɪꜱ",
+      "Dᴀᴠɪᴅ",
+      "Ɪ'm",
     );
     const banned = [
       "i",
@@ -234,6 +244,9 @@ describe("I-1 strings match their fixtures byte for byte", () => {
           if (rest === "have I reached the right number?") return;
           expect(rest).toMatch(/^is this [\p{Script=Latin}0-9 &'-]+\?$/u);
           expect(rest).not.toMatch(/[\u01C0-\u01C3]/);
+          expect(rest.normalize("NFD").replace(/\p{M}/gu, "")).toMatch(
+            /^[A-Za-z0-9 &'?łŁøØæÆœŒßđĐðÐþÞ-]+$/,
+          );
           const heard = rest
             .slice("is this ".length, -1)
             .normalize("NFD")

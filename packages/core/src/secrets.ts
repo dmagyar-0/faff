@@ -423,7 +423,9 @@ const findSecretValue = (text: string): Span | undefined => {
       string,
       string,
     ];
-    const joiner = symbol ?? word ?? "";
+    // "my password's sunshine": a possessive "'s" before the value means "is".
+    const prefix = m[0].slice(0, m[0].length - quote.length - token.length);
+    const joiner = symbol ?? word ?? (/['’]s\s+$/.test(prefix) ? "is" : "");
     const value = token.toLowerCase();
     // Lists hold words as they're cut at an apostrophe ("don't" is looked up as "don" too), so
     // "O'Brien" stays one value while "I'll" and "doesn't" still read as words.
@@ -459,9 +461,8 @@ const findSecretValue = (text: string): Span | undefined => {
     const head = value.split(/['’]/)[0] ?? "";
     if ([NOT_A_VALUE, NOT_AN_ANSWER].some((set) => set.has(value) || set.has(head))) continue;
     const looksLikeOne = /[\d\W_]/.test(value);
-    // A plain word counts for the plain-word secrets, when it ends the clause.
-    const plainAnswer =
-      PLAIN_WORD_SECRETS.test(m[0].replace(/^\W+/, "")) && /^\s*(?:[.,;!?]|$)/.test(after);
+    // A plain word counts when it ends the clause: "if they ask for my password, it's sunshine".
+    const plainAnswer = /^\s*(?:[.,;!?]|$)/.test(after);
     if (looksLikeOne || plainAnswer) return [m.index, m.index + m[0].length];
   }
   return undefined;

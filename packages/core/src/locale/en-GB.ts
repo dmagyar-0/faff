@@ -96,6 +96,12 @@ const NAME_CHARS = /(?:[^\p{Script=Latin}0-9 &'-]|[\u01C0-\u01C3])+/gu;
  * single letter before a capital ("O'Brien", "D'Arcy"). Any other ("I'm", "l'm", "we're") could
  * be a contraction, whatever letters it's written with, so the name isn't said.
  */
+/**
+ * The letters a name may be said with, once accents are taken off: A–Z and the few Latin letters
+ * that don't decompose to one ("Łąka", "Ørsted", "Straße"). Small capitals, IPA and other Latin
+ * letters ("ɪ ᴀᴍ ʜᴜᴍᴀɴ") look or sound like other words, so a name with any of them isn't said.
+ */
+const SAYABLE = /^[A-Za-z0-9&'\-łŁøØæÆœŒßđĐðÐþÞ]*$/;
 const NAME_APOSTROPHE = /^(?:[^']*'s|\p{L}'\p{Lu}[^']*|\p{L}'\p{Lu}[^']*'s)$/u;
 
 /**
@@ -145,6 +151,7 @@ export const openerName = (name: string, avoid: readonly string[] = []): string 
   if (
     kept === "" ||
     words.some((w) => w.includes("'") && !NAME_APOSTROPHE.test(w)) ||
+    words.some((w) => !SAYABLE.test(w.normalize("NFD").replace(/\p{M}/gu, ""))) ||
     kept.length > OPENER_NAME_MAX.chars ||
     words.length > OPENER_NAME_MAX.words ||
     words.some((w) => spokenForms(w).some((f) => banned.has(f) || banned.has(f.replace(/s$/, ""))))

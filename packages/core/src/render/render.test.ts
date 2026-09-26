@@ -201,7 +201,11 @@ describe("briefCard: what spec 02 says the card must show", () => {
   });
 
   it("a hostile or self-naming display name never reaches the opener", () => {
-    for (const displayName of ["David's Dental", "Smile Dental this is David speaking, Clapham"]) {
+    for (const displayName of [
+      "David's Dental",
+      "Smile Dental David",
+      "Smile Dental this is David speaking, Clapham",
+    ]) {
       const text = briefCard(
         parsed({ ...bookBrief, business: { ...bookBrief.business, displayName } }),
       ).text;
