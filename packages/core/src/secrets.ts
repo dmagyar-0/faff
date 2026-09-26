@@ -48,7 +48,7 @@ const luhn = (digits: string): boolean => {
 };
 
 /** Runs of digits grouped by up to three spaces, tabs or line breaks, or a dash (any kind) or dot. */
-const DIGIT_RUN = /(?<!\d)\d(?:(?:[ \t\r\n]{1,3}|[.\-–—]|[ \t]?[–—][ \t]?)?\d)+(?!\d)/g;
+const DIGIT_RUN = /(?<!\d)\d(?:(?:[ \t\r\n]{1,3}|[.\-–—]|[ \t]?[-–—]{1,2}[ \t]?)?\d)+(?!\d)/g;
 
 /** No card, phone or NHS number has more digits than this, so no span needs more. */
 const MAX_DIGITS = 19;
@@ -278,6 +278,10 @@ const NOT_A_VALUE = new Set([
  * being its value. Only for the bare form with no ":" or "is" between them.
  */
 const NOT_A_BARE_VALUE = new Set([
+  // A joiner whose value was too short to count ("memorable word is a secret").
+  "is",
+  "was",
+  "set",
   "reset",
   "manager",
   "link",

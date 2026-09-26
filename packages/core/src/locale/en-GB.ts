@@ -288,7 +288,7 @@ export const speakDateTime = (at: Instant, timezone: string): string => {
   return `${speakDate(zoned.toPlainDate())} at ${speakTime(zoned.hour, zoned.minute)}`;
 };
 
-/** "Tue 14 Oct 09:30": the short written form, for cards and confirmations. */
+/** "Tue 14 Oct 2026 09:30": the short written form, for cards and confirmations. */
 export const writeDateTime = (at: Instant, timezone: string): string => {
   const z = at.toZonedDateTimeISO(timezone);
   const hh = String(z.hour).padStart(2, "0");

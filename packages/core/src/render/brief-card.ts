@@ -14,7 +14,7 @@ import {
 } from "../locale/en-GB";
 import type { ProfileField } from "../primitives";
 import { Temporal } from "../time";
-import { acceptanceRuleText, listWords } from "./acceptance-rule";
+import { acceptanceRuleText, listWords, oneLine } from "./acceptance-rule";
 
 export type CardSection = { readonly title: string; readonly lines: readonly string[] };
 export type BriefCard = { readonly sections: readonly CardSection[]; readonly text: string };
@@ -72,11 +72,9 @@ const disclosureLines = (brief: Brief): string[] => {
   const name = brief.forPerson.firstName;
   const fields = brief.disclosure.allowedFields.map((f) => fieldLabel(f, brief.business.kind));
   const also = fields.length === 0 ? "" : listWords(fields, "and");
-  if (brief.channel.chosen === "phone") {
-    const what =
-      also === "" ? `Your first name (${name})` : `Your first name (${name}) and ${also}`;
-    return [`${what}, and only once they've confirmed who they are.`];
-  }
+  const what = also === "" ? `your first name (${name})` : `your first name (${name}) and ${also}`;
+  const phoneLine = `${what}, and only once they've confirmed who they are.`;
+  if (brief.channel.chosen === "phone") return [phoneLine.replace(/^./, (c) => c.toUpperCase())];
   const lines = [
     `Your first name (${name}) and last initial go in every email, with what you're asking for.`,
   ];
@@ -85,19 +83,30 @@ const disclosureLines = (brief: Brief): string[] => {
       ? "Nothing else about you."
       : `${also.replace(/^./, (c) => c.toUpperCase())}: only once they've replied from this address, unless they have before.`,
   );
+  // A switch to phone needs no email reply: on the call, the phone rule applies (I-7).
+  if (brief.business.contact.phone !== undefined) {
+    lines.push(`If it switches to phone: ${phoneLine}`);
+  }
   return lines;
 };
+
+/**
+ * The Brief's call opener (I-1, spec 08): the card shows it and the call says it, so both take it
+ * from here. The user's first name is never said as part of the business's name.
+ */
+export const briefOpener = (brief: Brief): string =>
+  disclosureOpener({
+    kind: brief.business.kind,
+    ...openerParts(brief.business.displayName),
+    avoid: [brief.forPerson.firstName],
+  });
 
 /**
  * How Faff says it's an AI (I-1): the call's fixed opener, or for email the fixed signature, and
  * the opener too when an email task may switch to phone.
  */
 const disclosureWords = (brief: Brief): string[] => {
-  const opener = disclosureOpener({
-    kind: brief.business.kind,
-    ...openerParts(brief.business.displayName),
-    avoid: [brief.forPerson.firstName],
-  });
+  const opener = briefOpener(brief);
   if (brief.channel.chosen === "phone") return [`Faff opens the call with: “${opener}”`];
   const lines = [`Every email is signed: “${EMAIL_DISCLOSURE}”`];
   if (brief.business.contact.phone !== undefined) {
@@ -105,12 +114,6 @@ const disclosureWords = (brief: Brief): string[] => {
   }
   return lines;
 };
-
-/**
- * Text from outside the card's own words (a web page's quote, the user's notes, the service) on
- * one line, so it can't look like more of the card.
- */
-const oneLine = (text: string): string => text.replace(/\s+/g, " ").trim();
 
 /** "P7D" → "7 days", "PT90M" → "90 minutes", "P1DT12H" → "1 day 12 hours". */
 export const durationWords = (duration: string): string => {

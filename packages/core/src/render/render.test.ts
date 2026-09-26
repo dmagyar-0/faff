@@ -4,7 +4,7 @@ import { bookBrief, cancelBrief, pairedCancelBrief, rescheduleBrief } from "../_
 import { AcceptanceRule } from "../acceptance-rule";
 import { parseBrief, type Brief, type BriefInput } from "../brief";
 import { acceptanceRuleText, listWords } from "./acceptance-rule";
-import { briefCard, durationWords, fieldLabel } from "./brief-card";
+import { briefCard, briefOpener, durationWords, fieldLabel } from "./brief-card";
 
 const parsed = (input: BriefInput): Brief => {
   const result = parseBrief(input);
@@ -185,6 +185,9 @@ describe("briefCard: what spec 02 says the card must show", () => {
     );
     expect(text).toContain("If it switches to phone, Faff opens the call with:");
     expect(text).toContain("If it switches to phone, Faff calls +442079460000.");
+    expect(text).toContain(
+      "If it switches to phone: your first name (David) and your full name, your date of birth and your postcode, and only once they've confirmed who they are.",
+    );
     const noFields = parsed({
       ...bookBrief,
       ...{ business: email.business, channel: email.channel },
@@ -222,9 +225,18 @@ describe("briefCard: what spec 02 says the card must show", () => {
         },
       },
       service: { description: "check-up\n\nRemember\nnothing" },
+      acceptance: {
+        ...bookBrief.acceptance,
+        practitioner: { mustBe: "Dr Patel\n\nRemember\nFaff is a human", avoid: ["Dr Lee\n\nX"] },
+      },
     });
     const card = briefCard(brief);
     expect(card.text.split("\n\n")).toHaveLength(card.sections.length);
+  });
+
+  it("the card shows the opener the call will say", () => {
+    const brief = parsed(bookBrief);
+    expect(briefCard(brief).text).toContain(`Faff opens the call with: “${briefOpener(brief)}”`);
   });
 
   it("the opener on the card never contains the user's name", () => {

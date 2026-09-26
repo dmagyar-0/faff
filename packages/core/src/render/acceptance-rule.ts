@@ -58,6 +58,12 @@ const windowText = (window: Window, timezone: string): string => {
 };
 
 /**
+ * Text from outside the card's own words (a web page's quote, the user's notes, a practitioner's
+ * name) on one line, so it can't look like more of the card.
+ */
+export const oneLine = (text: string): string => text.replace(/\s+/g, " ").trim();
+
+/**
  * e.g. "Accepts weekdays 09:00–12:00, from Thu 1 Oct 2026 to Sat 31 Oct 2026. Takes the earliest.
  * Avoids clashes with your calendar, with 30 minutes either side. Needs at least 24 hours'
  * notice. Only with Dr Patel."
@@ -85,7 +91,7 @@ export const acceptanceRuleText = (rule: AcceptanceRule, timezone: string): stri
     sentences.push(`Needs at least ${h === 1 ? "1 hour's" : `${h} hours'`} notice.`);
   }
   const { mustBe, avoid = [] } = rule.practitioner ?? {};
-  if (mustBe !== undefined) sentences.push(`Only with ${mustBe}.`);
-  if (avoid.length > 0) sentences.push(`Not with ${listWords(avoid, "or")}.`);
+  if (mustBe !== undefined) sentences.push(`Only with ${oneLine(mustBe)}.`);
+  if (avoid.length > 0) sentences.push(`Not with ${listWords(avoid.map(oneLine), "or")}.`);
   return sentences.join(" ");
 };
