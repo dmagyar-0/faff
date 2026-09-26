@@ -8,7 +8,7 @@
  * Tests compare the rendered opener and signature with fixtures byte for byte.
  */
 import type { BusinessKind } from "../brief";
-import { WEEKDAYS, type E164 } from "../primitives";
+import type { E164 } from "../primitives";
 import type { Instant, PlainDate } from "../time";
 
 export const LOCALE = "en-GB";
@@ -42,7 +42,26 @@ export const disclosureOpener = (args: {
   readonly location?: string;
 }): string =>
   `Hi, I'm an AI assistant calling on behalf of a ${CALLEE_NOUN[args.kind]} — is this ` +
-  `${args.businessName}${args.location === undefined ? "" : ` in ${args.location}`}?`;
+  `${openerName(args.businessName)}${args.location === undefined ? "" : ` in ${openerName(args.location)}`}?`;
+
+/** The longest name the opener will say. Business names are short; anything longer is text. */
+export const OPENER_NAME_MAX = 60;
+
+/**
+ * A name as the fixed opener may say it: letters, digits, spaces and `& ' ’ , . -` only, cut at
+ * {@link OPENER_NAME_MAX} characters. A display name can't turn the fixed I-1 line into a
+ * different sentence ("Smile Dental? Actually I'm David"): it has no question mark, no quotes
+ * and no room.
+ */
+export const openerName = (name: string): string =>
+  name
+    .normalize("NFKC")
+    .replace(/[^\p{L}\p{N} &'’,.-]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .replace(/ ([,.])/g, "$1")
+    .trim()
+    .slice(0, OPENER_NAME_MAX)
+    .trim();
 
 /** The inbound voicemail greeting, verbatim from spec 07 (I-1, Q23). */
 export const VOICEMAIL_GREETING =
@@ -170,6 +189,14 @@ const partOfDay = (hour24: number): string =>
 export const speakTime = (hour: number, minute: number): string => {
   if (minute === 0 && hour === 12) return "midday";
   if (minute === 0 && hour === 0) return "midnight";
+  // Just after midnight: "quarter past midnight", not "quarter past twelve in the morning".
+  if (hour === 0 && minute <= 30 && minute % 5 === 0) {
+    return minute === 15
+      ? "quarter past midnight"
+      : minute === 30
+        ? "half past midnight"
+        : `${numberWords(minute)} past midnight`;
+  }
   const nextHour = (hour + 1) % 24;
   const phrase = (() => {
     if (minute === 0) return `${hourWords(hour)} o'clock`;
@@ -246,12 +273,6 @@ export const BANK_HOLIDAYS_EW: readonly string[] = [
 
 /** The first and last dates the list covers. Working-day maths outside them is a guess. */
 export const BANK_HOLIDAY_RANGE = { from: "2026-01-01", to: "2028-12-31" } as const;
-
-export const isWorkingDay = (date: PlainDate): boolean =>
-  date.dayOfWeek <= 5 && !BANK_HOLIDAYS_EW.includes(date.toString());
-
-/** Monday to Friday, as the `Weekday` enum spells them. */
-export const WORKING_WEEKDAYS = WEEKDAYS.slice(0, 5);
 
 // --- Contacts and dialling ----------------------------------------------------------------
 

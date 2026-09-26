@@ -10,6 +10,7 @@
 # Each is a legal artefact (spec 12). claims.ts re-exports the user-facing claims from here.
 /packages/core/src/locale/ @dmagyar-0
 /packages/core/src/render/ @dmagyar-0
+/packages/core/src/__fixtures__/en-GB/ @dmagyar-0
 
 # This file, so the rule above can't be removed without the same review.
 /.github/CODEOWNERS @dmagyar-0

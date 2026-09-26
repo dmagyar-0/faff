@@ -3,9 +3,8 @@ import { describe, expect, it } from "vitest";
 import { bookBrief, cancelBrief, pairedCancelBrief, rescheduleBrief } from "../__fixtures__/briefs";
 import { AcceptanceRule } from "../acceptance-rule";
 import { parseBrief, type Brief, type BriefInput } from "../brief";
-import { APPROVAL_CARD_REMINDER } from "../locale/en-GB";
 import { acceptanceRuleText, listWords } from "./acceptance-rule";
-import { briefCard, durationWords, FIELD_LABEL } from "./brief-card";
+import { briefCard, durationWords, fieldLabel } from "./brief-card";
 
 const parsed = (input: BriefInput): Brief => {
   const result = parseBrief(input);
@@ -84,9 +83,15 @@ describe("briefCard: what spec 02 says the card must show", () => {
     ["the service", "Routine check-up and hygienist"],
     ["the existing appointment", "Wed 14 Oct 2026 09:30 (ref 4417)"],
     ["the acceptance rule in plain English", "Accepts weekdays 09:00–12:00"],
-    ["the fields the agent may say", "Your full name, your date of birth and your postcode"],
+    [
+      "the fields the agent may say",
+      "Your first name (David) and your full name, your date of birth and your postcode",
+    ],
     ["the limits", "Up to 3 calls and 30 minutes on the phone in all, within 7 days"],
-    ["the capability reminder", APPROVAL_CARD_REMINDER],
+    [
+      "the capability reminder, verbatim from spec 02",
+      "Faff will say it's an AI. Some businesses will decline.",
+    ],
   ])("%s", (_label, expected) => {
     expect(text).toContain(expected);
   });
@@ -107,7 +112,9 @@ describe("briefCard: what spec 02 says the card must show", () => {
       channel: { chosen: "email", reason: "user_override" },
     });
     const text = briefCard(email).text;
-    expect(text).toContain("within 2 working days, it switches to phone");
+    expect(text).toContain(
+      "within 2 working days, it asks you what to do: it has no phone number for them",
+    );
     expect(text).toContain("Wed 14 Oct 2026 09:30.");
     expect(text).not.toContain("may switch to one other number");
   });
@@ -135,8 +142,51 @@ describe("briefCard: what spec 02 says the card must show", () => {
     expect(text).toContain("Asks for Dr Patel.");
   });
 
-  it("has a label for every profile field", () => {
-    expect(Object.keys(FIELD_LABEL)).toHaveLength(9);
+  it("labels every profile field, with the business's noun for an existing customer", () => {
+    expect(fieldLabel("existing_patient", "dentist")).toBe("that you're an existing patient");
+    expect(fieldLabel("existing_patient", "garage")).toBe("that you're an existing customer");
+    expect(fieldLabel("nhs_number", "gp")).toBe("your NHS number");
+  });
+
+  it("always says the first name goes to them, and when (phone)", () => {
+    const none = parsed({ ...bookBrief, disclosure: { allowedFields: [] } });
+    expect(briefCard(none).text).toContain(
+      "Your first name (David), and only once they've confirmed who they are.",
+    );
+    expect(briefCard(parsed(bookBrief)).text).toContain(
+      "Your first name (David) and your full name, your date of birth and your postcode, and only once they've confirmed who they are.",
+    );
+  });
+
+  it("says the name goes in every email, and the rest only after a reply (email, D2)", () => {
+    const email = parsed({
+      ...bookBrief,
+      business: {
+        ...bookBrief.business,
+        contact: { source: "user_memory", email: "a@b.example", phone: "+442079460000" },
+      },
+      channel: { chosen: "email", reason: "user_override" },
+    });
+    const text = briefCard(email).text;
+    expect(text).toContain("Your name goes in every email");
+    expect(text).toContain(
+      "Your full name, your date of birth and your postcode: only once they've replied from this address",
+    );
+    expect(text).toContain("it switches to phone");
+    const noFields = parsed({
+      ...bookBrief,
+      ...{ business: email.business, channel: email.channel },
+      disclosure: { allowedFields: [] },
+    });
+    expect(briefCard(noFields).text).toContain("Nothing else about you.");
+  });
+
+  it("the opener on the card never contains the user's name", () => {
+    for (const input of [bookBrief, rescheduleBrief, cancelBrief]) {
+      const opener = briefCard(parsed(input)).sections[0]?.lines[1] ?? "";
+      expect(opener).toContain("AI assistant");
+      expect(opener).not.toContain("David");
+    }
   });
 });
 

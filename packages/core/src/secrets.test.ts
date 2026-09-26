@@ -21,6 +21,13 @@ const POSITIVE: readonly (readonly [string, SecretKind])[] = [
   ["4222222222222", "card_number"],
   ["６０１１ １１１１ １１１１ １１１７", "card_number"],
   ["my card is 4111111111111111.", "card_number"],
+  // With its expiry or security code written straight after it (review, PR 1.6).
+  ["4111 1111 1111 1111 12/28", "card_number"],
+  ["4111111111111111 12/28 123", "card_number"],
+  ["4111 1111 1111 1111 123", "card_number"],
+  ["5555 5555 5555 4444 09 27", "card_number"],
+  ["ref 12 4111 1111 1111 1111", "card_number"],
+  ["4111.1111.1111.1111", "card_number"],
   // Sort code and account number pairs.
   ["sort code 20-00-00 account 12345678", "bank_details"],
   ["Sort code: 200000", "bank_details"],
@@ -32,6 +39,11 @@ const POSITIVE: readonly (readonly [string, SecretKind])[] = [
   ["A/C 31926819", "bank_details"],
   ["Account: 31926819", "bank_details"],
   ["sort code ２０-００-００", "bank_details"],
+  ["acct 12345678", "bank_details"],
+  ["account no 1234 5678", "bank_details"],
+  ["IBAN GB29NWBK60161331926819", "bank_details"],
+  ["GB29 NWBK 6016 1331 9268 19", "bank_details"],
+  ["pay to DE89 3704 0044 0532 0130 00", "bank_details"],
   // A secret's name with its value.
   ["my PIN is 4471", "secret_value"],
   ["PIN: 4471", "secret_value"],
@@ -53,6 +65,13 @@ const POSITIVE: readonly (readonly [string, SecretKind])[] = [
   ["security answer: fluffy", "secret_value"],
   ["the answer to my security question is Paris", "secret_value"],
   ["PIN is ４４７１", "secret_value"],
+  ["password hunter2", "secret_value"],
+  ["memorable word sunshine", "secret_value"],
+  ["pw: hunter2", "secret_value"],
+  ["pwd hunter2", "secret_value"],
+  ["my PIN's 4471", "secret_value"],
+  ["2FA code 482913", "secret_value"],
+  ["login code: 551 902", "secret_value"],
 ];
 
 /** Every one of these must pass: ordinary notes that only look like numbers or mention secrets. */
@@ -104,6 +123,16 @@ const FALSE_POSITIVES: readonly string[] = [
   "they want my mother's maiden name; I'll call them myself",
   "Faff can't answer security questions",
   "the security code on the door is broken",
+  "password is changed",
+  "my password was reset last week",
+  "they said my password is too weak",
+  "verification code of 6 digits",
+  "the password doesn't work on their site",
+  "use the password reset link",
+  "they have a password manager",
+  "the password field is case sensitive",
+  "IBAN GB00NWBK60161331926819 is invalid",
+  "GB29 is a region code",
   // Ordinary notes.
   "ask for the hygienist too; patient since 2019",
   "prefers mornings, not Mondays",
@@ -159,10 +188,16 @@ describe("rejectSecrets", () => {
       fc.property(
         fc.array(fc.integer({ min: 0, max: 9 }), { minLength: 14, maxLength: 14 }),
         fc.array(fc.constantFrom("", " ", "-"), { minLength: 15, maxLength: 15 }),
-        (body, seps) => {
+        fc.array(fc.stringMatching(/^\d{1,4}$/), { maxLength: 2 }),
+        fc.array(fc.stringMatching(/^\d{1,4}$/), { maxLength: 2 }),
+        (body, seps, before, after) => {
           const digits = [4, ...body];
           const all = [...digits, luhnDigit(digits)];
-          const text = all.map((d, i) => `${d}${seps[i] ?? ""}`).join("");
+          const card = all
+            .map((d, i) => `${d}${i < all.length - 1 ? (seps[i] ?? "") : ""}`)
+            .join("");
+          // Digit groups before and after it, as an expiry or a reference would be written.
+          const text = [...before, card, ...after].join(" ");
           expect(rejectSecrets(`pay with ${text} please`)).toMatchObject({
             ok: false,
             reason: "card_number",
@@ -184,11 +219,13 @@ describe("rejectSecrets", () => {
 describe("rejectProfileValues (G21)", () => {
   const values = {
     full_name: "David Example",
+    preferred_name: "David",
     date_of_birth: "1985-03-04",
-    postcode: "SW4 7AA",
+    postcode: "W4 7AA",
     contact_phone: "+447700900123",
     contact_email: "d.ex@mail.example",
     nhs_number: "943 476 5919",
+    address_line: "12 High Street",
     existing_patient: "yes",
   } as const;
 
@@ -199,13 +236,19 @@ describe("rejectProfileValues (G21)", () => {
     ["dob 1985-03-04", "date_of_birth"],
     ["dob 4.3.85", "date_of_birth"],
     ["March 4, 1985", "date_of_birth"],
-    ["postcode sw47aa", "postcode"],
-    ["lives at SW4  7AA", "postcode"],
+    ["postcode w47aa", "postcode"],
+    ["lives at W4  7AA", "postcode"],
+    ["address 12 High St", "address_line"],
     ["mobile 07700 900123", "contact_phone"],
     ["mobile +44 7700 900 123", "contact_phone"],
     ["email D.Ex@Mail.Example", "contact_email"],
     ["NHS 9434765919", "nhs_number"],
     ["this is for David Example.", "full_name"],
+    ["dob 04031985", "date_of_birth"],
+    ["dob 040385", "date_of_birth"],
+    ["1985.3.4", "date_of_birth"],
+    ["mobile 7700 900123", "contact_phone"],
+    ["call 07700 900123 12:00", "contact_phone"],
   ])("rejects %j (%s)", (text, field) => {
     expect(rejectProfileValues(text, values)).toEqual({
       ok: false,
@@ -222,6 +265,10 @@ describe("rejectProfileValues (G21)", () => {
     "Davidexample is not the name",
     "yes please",
     "appointment on 04/03/2026",
+    "ref 1207700900123",
+    "their postcode is SW4 7AA",
+    "new w4 7aab",
+    "David prefers mornings",
   ])("allows %j", (text) => {
     expect(rejectProfileValues(text, values)).toEqual({ ok: true, value: true });
   });

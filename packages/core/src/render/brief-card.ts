@@ -43,7 +43,7 @@ const CHANNEL_WHY: Readonly<Record<ChannelReason, string>> = {
   user_override: "you chose it",
 };
 
-export const FIELD_LABEL: Readonly<Record<ProfileField, string>> = {
+const FIELD_LABEL: Readonly<Record<Exclude<ProfileField, "existing_patient">, string>> = {
   full_name: "your full name",
   preferred_name: "your preferred name",
   date_of_birth: "your date of birth",
@@ -51,8 +51,37 @@ export const FIELD_LABEL: Readonly<Record<ProfileField, string>> = {
   address_line: "your address",
   contact_phone: "your phone number",
   contact_email: "your email address",
-  existing_patient: "that you're an existing customer",
   nhs_number: "your NHS number",
+};
+
+/** How the card names a profile field; "existing patient" takes the business's noun. */
+export const fieldLabel = (field: ProfileField, kind: Brief["business"]["kind"]): string =>
+  field === "existing_patient"
+    ? `that you're an existing ${CALLEE_NOUN[kind]}`
+    : FIELD_LABEL[field];
+
+/**
+ * What Faff will say about the user. By phone, the agent names the user by first name once the
+ * business has confirmed who it is (spec 08), and the allowed fields likewise. By email, the user's
+ * name goes in every email (spec 07), and the other fields only once the business has replied from
+ * that address (D2), unless it has replied before.
+ */
+const disclosureLines = (brief: Brief): string[] => {
+  const name = brief.forPerson.firstName;
+  const fields = brief.disclosure.allowedFields.map((f) => fieldLabel(f, brief.business.kind));
+  const also = fields.length === 0 ? "" : listWords(fields, "and");
+  if (brief.channel.chosen === "phone") {
+    const what =
+      also === "" ? `Your first name (${name})` : `Your first name (${name}) and ${also}`;
+    return [`${what}, and only once they've confirmed who they are.`];
+  }
+  const lines = [`Your name goes in every email, with what you're asking for.`];
+  lines.push(
+    also === ""
+      ? "Nothing else about you."
+      : `${also.replace(/^./, (c) => c.toUpperCase())}: only once they've replied from this address, unless they have before.`,
+  );
+  return lines;
 };
 
 /** "P7D" → "7 days", "PT90M" → "90 minutes", "P1DT12H" → "1 day 12 hours". */
@@ -122,8 +151,12 @@ export const briefCard = (brief: Brief): BriefCard => {
   ];
   if (brief.channel.chosen === "email") {
     const days = brief.channel.emailFallbackToPhoneAfter.workingDays;
+    const within = `within ${days} working day${days === 1 ? "" : "s"}`;
+    // Spec 07: with no phone number to fall back to, the task escalates instead.
     channelLines.push(
-      `If there's no reply Faff can act on within ${days} working day${days === 1 ? "" : "s"}, it switches to phone.`,
+      brief.business.contact.phone === undefined
+        ? `If there's no reply Faff can act on ${within}, it asks you what to do: it has no phone number for them.`
+        : `If there's no reply Faff can act on ${within}, it switches to phone.`,
     );
   }
   sections.push({ title: "How", lines: channelLines });
@@ -156,15 +189,7 @@ export const briefCard = (brief: Brief): BriefCard => {
     sections.push({ title: "Acceptable times", lines });
   }
 
-  const fields = brief.disclosure.allowedFields.map((f) => FIELD_LABEL[f]);
-  sections.push({
-    title: "What Faff may tell them",
-    lines: [
-      fields.length === 0
-        ? "Nothing about you."
-        : `${listWords(fields, "and").replace(/^./, (c) => c.toUpperCase())}, and only once they've confirmed who they are.`,
-    ],
-  });
+  sections.push({ title: "What Faff may tell them", lines: disclosureLines(brief) });
 
   const l = brief.limits;
   sections.push({

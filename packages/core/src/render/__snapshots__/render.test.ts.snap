@@ -7,7 +7,7 @@ Faff opens the call with: “Hi, I'm an AI assistant calling on behalf of a clie
 
 How
 By email, because this business has recently preferred email.
-If there's no reply Faff can act on within 1 working day, it switches to phone.
+If there's no reply Faff can act on within 1 working day, it asks you what to do: it has no phone number for them.
 
 Contact
 hello@paws.example, found on https://paws.example/contact, which says: “Email hello@paws.example for appointments”.
@@ -21,7 +21,8 @@ Acceptable times
 Accepts weekdays 09:00–12:00, from Thu 1 Oct 2026 to Sat 31 Oct 2026. Takes the earliest. Avoids clashes with your calendar, with 30 minutes either side.
 
 What Faff may tell them
-Nothing about you.
+Your name goes in every email, with what you're asking for.
+Nothing else about you.
 
 Limits
 Up to 1 call and 10 minutes on the phone in all, within 1 day 12 hours. Then Faff stops and asks you.
@@ -53,7 +54,7 @@ Acceptable times
 Accepts weekdays 09:00–12:00, from Thu 1 Oct 2026 to Sat 31 Oct 2026. Takes the earliest. Avoids clashes with your calendar, with 30 minutes either side.
 
 What Faff may tell them
-Your full name, your date of birth and your postcode, and only once they've confirmed who they are.
+Your first name (David) and your full name, your date of birth and your postcode, and only once they've confirmed who they are.
 
 Limits
 Up to 3 calls and 30 minutes on the phone in all, within 7 days. Then Faff stops and asks you.
@@ -85,7 +86,7 @@ Cancellation
 You'll be asked to confirm this cancellation once more before Faff contacts them.
 
 What Faff may tell them
-Your full name, your date of birth and your postcode, and only once they've confirmed who they are.
+Your first name (David) and your full name, your date of birth and your postcode, and only once they've confirmed who they are.
 
 Limits
 Up to 3 calls and 30 minutes on the phone in all, within 7 days. Then Faff stops and asks you.
@@ -117,7 +118,7 @@ Cancellation
 Only once your new booking has succeeded. You'll confirm this cancellation separately.
 
 What Faff may tell them
-Your full name, your date of birth and your postcode, and only once they've confirmed who they are.
+Your first name (David) and your full name, your date of birth and your postcode, and only once they've confirmed who they are.
 
 Limits
 Up to 3 calls and 30 minutes on the phone in all, within 7 days. Then Faff stops and asks you.
@@ -150,7 +151,7 @@ Accepts weekdays 09:00–12:00, from Thu 1 Oct 2026 to Sat 31 Oct 2026. Takes th
 Your current appointment is released only once a new one is confirmed.
 
 What Faff may tell them
-Your full name, your date of birth and your postcode, and only once they've confirmed who they are.
+Your first name (David) and your full name, your date of birth and your postcode, and only once they've confirmed who they are.
 
 Limits
 Up to 3 calls and 30 minutes on the phone in all, within 7 days. Then Faff stops and asks you.

@@ -41,32 +41,78 @@ const luhn = (digits: string): boolean => {
   return sum % 10 === 0;
 };
 
-/** Digit runs that may be grouped by single spaces or dashes. */
-const DIGIT_RUN = /(?<![\d])\d(?:[ -]?\d)+(?![\d])/g;
+/** Runs of digits that may be grouped by single spaces, dashes or dots. */
+const DIGIT_RUN = /(?<!\d)\d(?:[ .-]?\d)+(?!\d)/g;
 
-const findCard = (text: string): Span | undefined => {
+/** A run split into its digit groups, each with its offset in the text. */
+const groupsOf = (run: string, offset: number): { digits: string; start: number; end: number }[] =>
+  [...run.matchAll(/\d+/g)].map((g) => ({
+    digits: g[0],
+    start: offset + g.index,
+    end: offset + g.index + g[0].length,
+  }));
+
+/**
+ * Every span of consecutive groups in every digit run, as its digits and where it is. A card
+ * written with its expiry or security code after it ("4111 1111 1111 1111 12 28") is one run; the
+ * card is one of its spans.
+ */
+export const digitSpans = (text: string): { digits: string; span: Span }[] => {
+  const out: { digits: string; span: Span }[] = [];
   for (const m of text.matchAll(DIGIT_RUN)) {
-    const digits = m[0].replace(/[ -]/g, "");
-    if (digits.length >= 13 && digits.length <= 19 && /^[2-6]/.test(digits) && luhn(digits)) {
-      return [m.index, m.index + m[0].length];
+    const groups = groupsOf(m[0], m.index);
+    for (let i = 0; i < groups.length; i++) {
+      let digits = "";
+      for (let j = i; j < groups.length; j++) {
+        const g = groups[j] as { digits: string; start: number; end: number };
+        digits += g.digits;
+        out.push({ digits, span: [(groups[i] as { start: number }).start, g.end] });
+      }
     }
   }
-  return undefined;
+  return out;
 };
+
+const findCard = (text: string): Span | undefined =>
+  digitSpans(text).find(
+    ({ digits }) =>
+      digits.length >= 13 && digits.length <= 19 && /^[2-6]/.test(digits) && luhn(digits),
+  )?.span;
+
+/** ISO 13616 check: move the first four characters to the end, letters to numbers, mod 97. */
+const ibanValid = (iban: string): boolean => {
+  const moved = (iban.slice(4) + iban.slice(0, 4)).toUpperCase();
+  let rest = 0;
+  for (const ch of moved) {
+    const code = ch.charCodeAt(0);
+    const value = code >= 65 ? String(code - 55) : ch;
+    for (const d of value) rest = (rest * 10 + Number(d)) % 97;
+  }
+  return rest === 1;
+};
+const IBAN = /\b[A-Za-z]{2}\d{2}(?: ?[A-Za-z0-9]{4}){2,7}(?: ?[A-Za-z0-9]{1,4})?\b/g;
 
 const SORT_CODE = /(?<![\d-])(\d{2}[- ]\d{2}[- ]\d{2}|\d{6})(?![\d-])/g;
 const SORT_CODE_WORDS = /sort[\s-]*code\W{0,12}$/i;
 /** A sort code written right next to an 8-digit account number, either way round. */
 const SORT_THEN_ACCOUNT = /^\W{1,3}\d{8}(?!\d)/;
 const ACCOUNT_THEN_SORT = /(?<!\d)\d{8}\W{1,3}$/;
-const ACCOUNT_WORDS = /\b(?:account|acc|a\/c)(?:\s*(?:number|no\.?|num|#))?\W{0,6}\d{8}(?![\d])/gi;
+const ACCOUNT_WORDS =
+  /\b(?:account|acct|acc|a\/c)(?:\s*(?:number|no\.?|num|#))?\W{0,6}\d{4}[ -]?\d{4}(?![\d])/gi;
 
 /**
- * A date written like a sort code (`14-10-26`) is common in notes, often near a booking
- * reference, so a sort code counts only with the words "sort code" before it or an account
- * number directly beside it.
+ * An IBAN (which holds a UK sort code and account number) that passes its checksum; a sort code
+ * with the words "sort code" before it or an account number directly beside it; or "account
+ * number" with 8 digits. A date written like a sort code (`14-10-26`) is common in notes, often
+ * near a booking reference, so a bare one doesn't count.
  */
 const findBank = (text: string): Span | undefined => {
+  for (const m of text.matchAll(IBAN)) {
+    const compact = m[0].replace(/ /g, "");
+    if (compact.length >= 15 && compact.length <= 34 && ibanValid(compact)) {
+      return [m.index, m.index + m[0].length];
+    }
+  }
   for (const m of text.matchAll(SORT_CODE)) {
     const start = m.index;
     const end = start + m[0].length;
@@ -80,19 +126,23 @@ const findBank = (text: string): Span | undefined => {
   return undefined;
 };
 
+/** A secret's name may be followed by "'s": "my PIN's 4471". */
+const POSSESSIVE = "(?:['’]s)?";
+
 /** Secrets whose value is a short number: PINs, card security codes, one-time codes. */
 const NUMERIC_SECRETS =
-  "pin(?:\\s*(?:number|code))?|passcode|cvv2?|cvc|csc|card\\s+security\\s+code|security\\s+code|one[\\s-]*time\\s+(?:pass)?code|otp|verification\\s+code|auth(?:entication)?\\s+code";
+  "pin(?:\\s*(?:number|code))?|passcode|cvv2?|cvc|csc|card\\s+security\\s+code|security\\s+code|one[\\s-]*time\\s+(?:pass)?code|otp|verification\\s+code|auth(?:entication)?\\s+code|(?:2fa|mfa|sms|login|access)\\s+code";
 const NUMERIC_SECRET = new RegExp(
-  `\\b(?:${NUMERIC_SECRETS})\\b[^\\w\\n]{0,3}(?:(?:is|was|=|:|of|number|code)[^\\w\\n]{0,3}){0,2}(\\d(?:[ -]?\\d){2,7})(?![\\d])`,
+  `\\b(?:${NUMERIC_SECRETS})\\b${POSSESSIVE}[^\\w\\n]{0,3}(?:(?:is|was|=|:|number|code)[^\\w\\n]{0,3}){0,2}(\\d(?:[ -]?\\d){2,7})(?![\\d])`,
   "gi",
 );
 
 /** Secrets whose value is a word or phrase: passwords, memorable words, security answers. */
 const WORD_SECRETS =
-  "password|passphrase|pass\\s*word|memorable\\s+(?:word|information|info|answer)|(?:mother'?s|mum'?s|mom'?s)\\s+maiden\\s+name|maiden\\s+name|security\\s+answer|secret\\s+answer|answer\\s+to\\s+(?:my|the)\\s+security\\s+question|security\\s+question\\s+answer";
+  "password|passphrase|pass\\s*word|passwd|pwd|pw|memorable\\s+(?:word|information|info|answer)|(?:mother'?s|mum'?s|mom'?s)\\s+maiden\\s+name|maiden\\s+name|security\\s+answer|secret\\s+answer|answer\\s+to\\s+(?:my|the)\\s+security\\s+question|security\\s+question\\s+answer";
+/** The name, then ":", "=", "is" or "was" (group 1), then the value, perhaps quoted (2, 3). */
 const WORD_SECRET = new RegExp(
-  `\\b(?:${WORD_SECRETS})\\b\\s*(?::|=|\\bis\\b|\\bwas\\b|\\bis\\s+set\\s+to\\b)\\s*(["'“‘]?)([^\\s"'”’.,;!?]{2,})`,
+  `\\b(?:${WORD_SECRETS})\\b${POSSESSIVE}\\s*(:|=|\\bis\\s+set\\s+to\\b|\\bis\\b|\\bwas\\b|(?=\\s))\\s*(["'“‘]?)([^\\s"'”’.,;!?]{2,})`,
   "gi",
 );
 /** Words that follow "password is" without being a password. */
@@ -141,16 +191,90 @@ const NOT_A_VALUE = new Set([
   "being",
   "going",
   "to",
+  "changed",
+  "reset",
+  "expired",
+  "locked",
+  "too",
+  "incorrect",
+  "invalid",
+  "weak",
+  "strong",
+  "case",
+  "sensitive",
+]);
+
+/**
+ * Words that follow a secret's name directly ("password reset", "password manager") without
+ * being its value. Only for the bare form with no ":" or "is" between them.
+ */
+const NOT_A_BARE_VALUE = new Set([
+  "reset",
+  "manager",
+  "link",
+  "field",
+  "box",
+  "change",
+  "changes",
+  "policy",
+  "rules",
+  "requirements",
+  "hint",
+  "protected",
+  "and",
+  "or",
+  "but",
+  "if",
+  "so",
+  "please",
+  "will",
+  "can",
+  "could",
+  "should",
+  "has",
+  "had",
+  "have",
+  "needs",
+  "need",
+  "again",
+  "question",
+  "questions",
+  "email",
+  "letter",
+  "they",
+  "you",
+  "i",
+  "we",
+  "from",
+  "with",
+  "by",
+  // Words cut at an apostrophe: "the password doesn't work".
+  "doesn",
+  "isn",
+  "wasn",
+  "don",
+  "won",
+  "didn",
+  "aren",
+  "can",
 ]);
 
 const findSecretValue = (text: string): Span | undefined => {
   for (const m of text.matchAll(NUMERIC_SECRET)) return [m.index, m.index + m[0].length];
   for (const m of text.matchAll(WORD_SECRET)) {
-    // A quoted value is a value, even if it's an ordinary word ("correct horse").
-    const [, quote, token] = m as unknown as [string, string, string];
-    const quoted = quote !== "";
+    const [, joiner, quote, token] = m as unknown as [string, string, string, string];
     const value = token.toLowerCase();
-    if (quoted || !NOT_A_VALUE.has(value)) return [m.index, m.index + m[0].length];
+    // A quoted value is a value, even if it's an ordinary word ("correct horse").
+    if (quote !== "") return [m.index, m.index + m[0].length];
+    if (NOT_A_VALUE.has(value)) continue;
+    // "password hunter2": with nothing between name and value, the value must look like one.
+    if (
+      joiner === "" &&
+      (NOT_A_BARE_VALUE.has(value) || (!/[\d\W_]/.test(value) && value.length < 4))
+    ) {
+      continue;
+    }
+    return [m.index, m.index + m[0].length];
   }
   return undefined;
 };
@@ -191,12 +315,30 @@ const MONTHS = [
   "december",
 ] as const;
 
+/** Street words people abbreviate, so "12 High St" matches "12 High Street". */
+const STREET_WORDS: Readonly<Record<string, string>> = {
+  street: "st",
+  road: "rd",
+  avenue: "ave",
+  lane: "ln",
+  drive: "dr",
+  close: "cl",
+  crescent: "cres",
+  place: "pl",
+  square: "sq",
+  gardens: "gdns",
+  terrace: "ter",
+};
+
 /** NFKC, case-folded, every run of anything but letters and digits collapsed to one space. */
 const fold = (text: string): string =>
   normaliseForScan(text)
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .trim();
+    .trim()
+    .split(" ")
+    .map((w) => STREET_WORDS[w] ?? w)
+    .join(" ");
 
 const ordinal = (day: number): string => {
   const teen = day % 100 >= 11 && day % 100 <= 13;
@@ -213,13 +355,14 @@ const dateSpellings = (iso: string): string[] => {
   const days = [dd, String(Number(dd)), ordinal(Number(dd))];
   const months = [mm, String(Number(mm)), month, month.slice(0, 3)];
   const years = [y, y.slice(2)];
-  const out = new Set<string>([`${y} ${mm} ${dd}`]);
+  const out = new Set<string>([`${y}${mm}${dd}`, `${dd}${mm}${y}`, `${dd}${mm}${y.slice(2)}`]);
   for (const d of days) {
     for (const mo of months) {
       for (const yr of years) {
         out.add(`${d} ${mo} ${yr}`);
         out.add(`${d} of ${mo} ${yr}`);
         out.add(`${mo} ${d} ${yr}`);
+        out.add(`${yr} ${mo} ${d}`);
       }
     }
   }
@@ -228,24 +371,31 @@ const dateSpellings = (iso: string): string[] => {
 
 const digitsOnly = (text: string): string => normaliseForScan(text).replace(/\D/g, "");
 
-/** Fields that hold no value worth matching. */
-const SKIP: ReadonlySet<ProfileField> = new Set(["existing_patient"]);
+/**
+ * Fields that aren't matched: `existing_patient` holds no value worth matching, and a preferred
+ * name is usually the first name the Brief already carries (`forPerson.firstName`), which a
+ * note may use freely.
+ */
+const SKIP: ReadonlySet<ProfileField> = new Set(["existing_patient", "preferred_name"]);
 
 export const PROFILE_VALUE_REASONS = ["profile_value"] as const;
 export type ProfileValueReason = (typeof PROFILE_VALUE_REASONS)[number];
 
+const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 /**
  * `ok` unless `text` contains one of the user's own profile values, in any usual spelling. The
  * web server calls it at draft time with the user's values, before a Brief revision is written.
- * Values of three characters or fewer are ignored: they'd match by accident.
+ * Values of three characters or fewer are ignored: they'd match by accident. Numbers must be a
+ * whole span of digit groups in the note, and words match whole words, so a longer reference or
+ * a neighbouring postcode doesn't trip it.
  */
 export const rejectProfileValues = (
   text: string,
   values: ProfileValues,
 ): Result<true, ProfileValueReason, { readonly field: ProfileField }> => {
   const words = ` ${fold(text)} `;
-  const squashed = words.replace(/ /g, "");
-  const digits = digitsOnly(text);
+  const spans = new Set(digitSpans(normaliseForScan(text)).map((s) => s.digits));
   const contains = (phrase: string): boolean => phrase !== "" && words.includes(` ${phrase} `);
   for (const [field, raw] of Object.entries(values) as [ProfileField, string | undefined][]) {
     if (raw === undefined || SKIP.has(field) || fold(raw).replace(/ /g, "").length <= 3) continue;
@@ -254,14 +404,18 @@ export const rejectProfileValues = (
       case "date_of_birth":
         hit = dateSpellings(raw).some(contains);
         break;
-      case "postcode":
-        hit = squashed.includes(fold(raw).replace(/ /g, ""));
+      case "postcode": {
+        const compact = fold(raw).replace(/ /g, "");
+        const outward = escapeRegExp(compact.slice(0, -3));
+        const inward = escapeRegExp(compact.slice(-3));
+        hit = new RegExp(` ${outward} ?${inward} `).test(words);
         break;
+      }
       case "contact_phone":
       case "nhs_number": {
         const national = digitsOnly(raw).replace(/^44/, "0");
-        const international = national.replace(/^0/, "44");
-        hit = national.length >= 7 && (digits.includes(national) || digits.includes(international));
+        const variants = [national, national.replace(/^0/, "44"), national.replace(/^0/, "")];
+        hit = national.length >= 7 && variants.some((v) => spans.has(v));
         break;
       }
       default:

@@ -21,6 +21,11 @@ export const limitations =
  * (spec 02). The text lives in core's en-GB catalogue, because the card is rendered there and the
  * catalogue is per locale (spec 12); it is re-exported here so every capability claim can be
  * found from this file. `.github/CODEOWNERS` covers the catalogue too.
+ *
+ * The approval card's own statements about what Faff will do (switching numbers, falling back to
+ * phone, cancelling, stopping at its limits, what it tells the business) are in
+ * packages/core/src/render/brief-card.ts, which CODEOWNERS also covers. Check them against I-12
+ * with this file.
  */
 export {
   APPROVAL_CARD_REMINDER as approvalCardReminder,

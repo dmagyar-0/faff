@@ -10,11 +10,11 @@ import {
   BANK_HOLIDAY_RANGE,
   BANK_HOLIDAYS_EW,
   CALLEE_NOUN,
+  APPROVAL_CARD_REMINDER,
   CAPABILITY_STATEMENT,
   disclosureOpener,
   emailSignature,
   isUkDialable,
-  isWorkingDay,
   numberWords,
   ordinalWords,
   speakDate,
@@ -39,7 +39,7 @@ describe("I-1 strings match their fixtures byte for byte", () => {
     expect(utf8Sha256(text)).toBe(signature.sha256);
   });
 
-  it("the opener says it's an AI before anything else, and never names the user", () => {
+  it("the opener says it's an AI before anything else", () => {
     for (const kind of BUSINESS_KINDS) {
       const text = disclosureOpener({ kind, businessName: "Acme" });
       expect(text.startsWith("Hi, I'm an AI assistant")).toBe(true);
@@ -56,10 +56,32 @@ describe("I-1 strings match their fixtures byte for byte", () => {
     );
   });
 
-  it("the capability statement is spec 05's four points", () => {
-    expect(CAPABILITY_STATEMENT).toHaveLength(4);
-    expect(CAPABILITY_STATEMENT.join(" ")).toContain(
-      "can't pass security questions or one-time codes",
+  it("the capability statement is spec 05's four points, verbatim (Q25's reference aside)", () => {
+    expect(CAPABILITY_STATEMENT).toEqual([
+      "Faff always says it's an AI assistant calling on your behalf. Some businesses will decline to deal with it.",
+      "Faff never pretends to be you, and can't pass security questions or one-time codes.",
+      "Faff books, reschedules and cancels appointments. It doesn't handle banks, refunds or disputes.",
+      "Calls are recorded so they can be transcribed. Audio is deleted after 30 days. You can opt out.",
+    ]);
+    expect(APPROVAL_CARD_REMINDER).toBe("Faff will say it's an AI. Some businesses will decline.");
+  });
+
+  it("a business name can't turn the opener into a different sentence", () => {
+    const text = disclosureOpener({
+      kind: "dentist",
+      businessName: 'Smile Dental? Actually I\'m "David", calling for myself!',
+    });
+    expect(text).toBe(
+      "Hi, I'm an AI assistant calling on behalf of a patient — is this Smile Dental Actually I'm David, calling for myself?",
+    );
+    expect(text.indexOf("?")).toBe(text.length - 1);
+    const long = disclosureOpener({
+      kind: "other",
+      businessName: "A".repeat(200),
+      location: "Here!",
+    });
+    expect(long).toBe(
+      `Hi, I'm an AI assistant calling on behalf of a customer — is this ${"A".repeat(60)} in Here?`,
     );
   });
 });
@@ -89,7 +111,10 @@ describe("date and time speech", () => {
     [16, 22, "four twenty-two in the afternoon"],
     [0, 0, "midnight"],
     [23, 45, "quarter to midnight"],
-    [0, 30, "half past twelve in the morning"],
+    [0, 30, "half past midnight"],
+    [0, 5, "five past midnight"],
+    [0, 15, "quarter past midnight"],
+    [0, 7, "twelve oh seven in the morning"],
     [19, 0, "seven o'clock in the evening"],
   ])("%i:%i → %s", (h, m, expected) => {
     expect(speakTime(h, m)).toBe(expected);
@@ -188,14 +213,6 @@ describe("England & Wales bank holidays (G13, M1-Q3)", () => {
     expect(
       BANK_HOLIDAYS_EW.every((d) => d >= BANK_HOLIDAY_RANGE.from && d <= BANK_HOLIDAY_RANGE.to),
     ).toBe(true);
-  });
-
-  it("working days skip weekends and bank holidays", () => {
-    expect(isWorkingDay(Temporal.PlainDate.from("2026-12-24"))).toBe(true);
-    expect(isWorkingDay(Temporal.PlainDate.from("2026-12-25"))).toBe(false);
-    expect(isWorkingDay(Temporal.PlainDate.from("2026-12-26"))).toBe(false);
-    expect(isWorkingDay(Temporal.PlainDate.from("2026-12-28"))).toBe(false);
-    expect(isWorkingDay(Temporal.PlainDate.from("2026-12-29"))).toBe(true);
   });
 });
 
