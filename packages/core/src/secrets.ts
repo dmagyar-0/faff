@@ -37,7 +37,9 @@ export type SecretReason = (typeof SECRET_REASONS)[number];
 /** Where the match is, as [start, end) offsets into the NFKC-normalised text. */
 export type Span = readonly [number, number];
 
-export const normaliseForScan = (text: string): string => text.normalize("NFKC");
+/** NFKC, and invisible format characters removed, so "44\u200B71" is 4471. */
+export const normaliseForScan = (text: string): string =>
+  text.normalize("NFKC").replace(/\p{Cf}/gu, "");
 
 const luhn = (digits: string): boolean => {
   let sum = 0;
@@ -105,8 +107,20 @@ export const digitSpans = (text: string): DigitSpan[] => {
   return out;
 };
 
-/** How cards are printed: 4-4-4-4 (and 4-4-4-4-3), Amex 4-6-5, Diners 4-6-4, or one block. */
-const CARD_GROUPINGS = new Set(["4,4,4,4", "4,4,4,4,3", "4,4,4,4,2", "4,6,5", "4,6,4", "4,4,4,1"]);
+/**
+ * How cards are printed or typed: 4-4-4-4 (and 4-4-4-4-3), Amex 4-6-5 or in fours (4-4-4-3),
+ * Diners 4-6-4 or in fours (4-4-4-2), or one block.
+ */
+const CARD_GROUPINGS = new Set([
+  "4,4,4,4",
+  "4,4,4,4,3",
+  "4,4,4,4,2",
+  "4,6,5",
+  "4,6,4",
+  "4,4,4,1",
+  "4,4,4,3",
+  "4,4,4,2",
+]);
 const cardShaped = (s: DigitSpan): boolean =>
   s.groups.length === 1 ||
   CARD_GROUPINGS.has(s.groups.join(",")) ||
@@ -219,7 +233,7 @@ const POSSESSIVE = "(?:['’]s)?";
 
 /** Secrets whose value is a short number: PINs, card security codes, one-time codes. */
 const NUMERIC_SECRETS =
-  "pin(?:\\s*(?:number|code))?|passcode|cvv2?|cvc|csc|card\\s+security\\s+code|security\\s+code|one[\\s-]*time\\s+(?:pass)?code|otp|verification\\s+code|auth(?:entication)?\\s+code|(?:2fa|mfa|sms|login|access)\\s+code";
+  "pin(?:\\s*(?:number|code))?|passcode|cvv2?|cvc|csc|card\\s+security\\s+code|security\\s+code|one[\\s-]*time\\s+(?:pass)?code|otp|verification\\s+code|auth(?:entication)?\\s+code|(?:2fa|mfa|sms|login|access|text|texted)\\s+code";
 const NUMERIC_SECRET = new RegExp(
   `\\b(?:${NUMERIC_SECRETS})\\b${POSSESSIVE}\\W{0,3}(?:(?:is|was|=|:|number|code)\\W{0,3}){0,2}(\\d(?:[ -]?\\d){2,7})(?![\\d])`,
   "gi",
@@ -227,7 +241,7 @@ const NUMERIC_SECRET = new RegExp(
 
 /** Secrets whose value is a word or phrase: passwords, memorable words, security answers. */
 const WORD_SECRETS =
-  "first\\s+pet(?:['’]?s\\s+name)?|place\\s+of\\s+birth|first\\s+school|passcode|password|passphrase|pass\\s*word|passwd|pwd|pw|memorable\\s+(?:word|information|info|answer|place|date|name)|(?:mother'?s|mum'?s|mom'?s)\\s+maiden\\s+name|maiden\\s+name|security\\s+answer|secret\\s+answer|answer\\s+to\\s+(?:my|the)\\s+security\\s+question|security\\s+question\\s+answer";
+  "first\\s+pet(?:['’]?s\\s+name)?|place\\s+of\\s+birth|first\\s+school|passcode|password|passphrase|pass\\s*word|passwd|pwd|pw|memorable\\s+(?:word|information|info|answer|place|date|name)|security\\s+word|secret\\s+word|(?:town|city)\\s+of\\s+birth|(?:mother'?s|mum'?s|mom'?s)\\s+maiden\\s+name|maiden\\s+name|security\\s+answer|secret\\s+answer|answer\\s+to\\s+(?:my\\s+|the\\s+)?security\\s+question|security\\s+question\\s+answer";
 /**
  * The name, then a joiner, then the value, perhaps quoted. The joiner is ":", "=", "->" or a dash
  * (group 1), or "is", "was" or "is set to" (group 2), or just whitespace. Each alternative takes
@@ -259,7 +273,7 @@ const NOT_AN_ANSWER = new Set(
 
 /** Secrets whose answers are ordinary words, so a bare word after them is a value. */
 const PLAIN_WORD_SECRETS =
-  /^(?:first\s+pet|place\s+of\s+birth|first\s+school|memorable|mother|mum|mom|maiden|security|secret|answer)/i;
+  /^(?:first\s+pet|place\s+of\s+birth|town\s+of\s+birth|city\s+of\s+birth|first\s+school|memorable|mother|mum|mom|maiden|security|secret|answer)/i;
 
 /** Words that follow "password is" without being a password. */
 const NOT_A_VALUE = new Set([

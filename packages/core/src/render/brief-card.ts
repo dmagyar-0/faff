@@ -239,7 +239,7 @@ export const briefCard = (brief: Brief): BriefCard => {
   sections.push({
     title: "Limits",
     lines: [
-      `Up to ${l.maxDialAttempts} call${l.maxDialAttempts === 1 ? "" : "s"} and ${l.maxCallMinutes} minutes on the phone in all, within ${durationWords(l.maxLifetime)}. Then Faff stops and asks you.`,
+      `Up to ${l.maxDialAttempts} call${l.maxDialAttempts === 1 ? "" : "s"} and ${l.maxCallMinutes} minute${l.maxCallMinutes === 1 ? "" : "s"} on the phone in all, within ${durationWords(l.maxLifetime)}. Then Faff stops and asks you.`,
     ],
   });
 

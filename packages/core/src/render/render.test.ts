@@ -126,6 +126,14 @@ describe("briefCard: what spec 02 says the card must show", () => {
     expect(card.text.split("\n\n")).toHaveLength(card.sections.length);
   });
 
+  it("says 1 minute, not 1 minutes", () => {
+    const one = parsed({
+      ...bookBrief,
+      limits: { maxDialAttempts: 1, maxCallMinutes: 1, maxLifetime: "P1D" },
+    });
+    expect(briefCard(one).text).toContain("and 1 minute on the phone");
+  });
+
   it("says when auto-switching is off", () => {
     const off = parsed({
       ...bookBrief,
