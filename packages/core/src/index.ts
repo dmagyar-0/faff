@@ -13,4 +13,5 @@ export * from "./observations";
 export * from "./canonical";
 export * from "./acceptance";
 export * from "./heard-date";
+export { compareInstants, type Instant, instantOf, type PlainDate, tryInstantOf } from "./time";
 export { normalisePractitioner, samePractitioner } from "./practitioner";

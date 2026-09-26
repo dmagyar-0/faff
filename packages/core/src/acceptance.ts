@@ -11,6 +11,7 @@
  *   (`record_offer`) and these become the escalation's offers.
  */
 import type { AcceptanceRule, Preference, Window } from "./acceptance-rule";
+import type { Brief } from "./brief";
 import { type HeardDate, type HeardDateMismatch, heardDateMismatches } from "./heard-date";
 import { normalisePractitioner, samePractitioner } from "./practitioner";
 import { IsoDateTime, type Slot, WEEKDAYS } from "./primitives";
@@ -54,8 +55,8 @@ export type BusyInterval = { readonly start: string; readonly end: string };
 
 export type AcceptanceContext = {
   readonly now: Instant;
-  /** The Brief's IANA timezone: recurring windows are wall-clock times there. */
-  readonly timezone: string;
+  /** The Brief's timezone: recurring windows are wall-clock times there. */
+  readonly timezone: Brief["timezone"];
   /** The service's duration, for a slot offered without an end. */
   readonly defaultDurationMinutes?: number;
   /** For a reschedule: its own busy block is ignored, or it would block the slots beside it. */

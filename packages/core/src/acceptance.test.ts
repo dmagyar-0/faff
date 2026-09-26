@@ -11,7 +11,7 @@ import {
 import type { Slot, Weekday } from "./primitives";
 import { instantOf } from "./time";
 
-const TZ = "Europe/London";
+const TZ = "Europe/London" as const;
 const ctx = (overrides: Partial<AcceptanceContext> = {}): AcceptanceContext => ({
   now: instantOf("2026-01-01T00:00:00Z"),
   timezone: TZ,
@@ -179,6 +179,28 @@ describe("named DST and midnight cases (M1 plan §3.4)", () => {
     ).toBe("outside_rule");
   });
 
+  it("windows join across midnight: a slot from one day's window into the next day's", () => {
+    // Sat 20:00–00:00 and Sun 00:00–03:00, in BST so local and UTC dates differ.
+    const r = rule([
+      recurring("20:00", "00:00", ["2026-10-03", "2026-10-03"], ["sat"]),
+      recurring("00:00", "03:00", ["2026-10-04", "2026-10-04"], ["sun"]),
+    ]);
+    expect(kind(r, { start: "2026-10-03T23:30:00+01:00", end: "2026-10-04T00:30:00+01:00" })).toBe(
+      "accept",
+    );
+    expect(kind(r, { start: "2026-10-04T02:30:00+01:00", end: "2026-10-04T03:30:00+01:00" })).toBe(
+      "outside_rule",
+    );
+  });
+
+  it("a window nested inside another doesn't shrink it", () => {
+    const r = rule([
+      absolute("2026-10-05T09:00:00+01:00", "2026-10-05T17:00:00+01:00"),
+      absolute("2026-10-05T10:00:00+01:00", "2026-10-05T11:00:00+01:00"),
+    ]);
+    expect(kind(r, { start: "2026-10-05T12:00:00+01:00" })).toBe("accept");
+  });
+
   it("each 2027 and 2028 transition behaves the same way", () => {
     for (const [spring, fall] of [
       ["2027-03-28", "2027-10-31"],
@@ -221,6 +243,20 @@ describe("evaluateAcceptance", () => {
         kind: "reject",
         reason: "invalid_slot",
       });
+    });
+
+    it("boundaries: a slot starting exactly now, and one exactly 24 hours long, are real offers", () => {
+      const wide = rule([absolute("2026-10-05T00:00:00Z", "2026-10-07T00:00:00Z")]);
+      const now = instantOf("2026-10-05T10:00:00Z");
+      expect(kind(wide, { start: "2026-10-05T10:00:00Z" }, [], ctx({ now }))).toBe("accept");
+      expect(
+        kind(
+          wide,
+          { start: "2026-10-05T10:00:00Z", end: "2026-10-06T10:00:00Z" },
+          [],
+          ctx({ now }),
+        ),
+      ).toBe("accept");
     });
 
     it("a slot in the past → in_past", () => {
@@ -368,6 +404,15 @@ describe("evaluateAcceptance", () => {
         expect(
           kind(r(false), { start: "2026-10-05T10:00:00Z" }, [{ start: "bad", end: "bad" }]),
         ).toBe("accept");
+      });
+
+      it("a zero-length busy block is readable, and clashes when inside the slot", () => {
+        const point = [{ start: "2026-10-05T10:15:00Z", end: "2026-10-05T10:15:00Z" }];
+        expect(
+          evaluateAcceptance(r(true), { start: "2026-10-05T10:00:00Z" }, point, ctx()),
+        ).toMatchObject({
+          reasons: ["calendar_conflict"],
+        });
       });
 
       it("an unreadable busy block means the slot can't be accepted", () => {

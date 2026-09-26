@@ -43,7 +43,8 @@ export const addMinutes = (at: Temporal.Instant, minutes: number): Temporal.Inst
   at.add({ minutes });
 
 export const addHours = (at: Temporal.Instant, hours: number): Temporal.Instant =>
-  at.add({ minutes: Math.round(hours * 60) });
+  // Rounded up, so a fractional notice period is never shortened.
+  at.add({ minutes: Math.ceil(hours * 60) });
 
 export const minutesBetween = (a: Temporal.Instant, b: Temporal.Instant): number =>
   b.since(a).total({ unit: "minutes" });

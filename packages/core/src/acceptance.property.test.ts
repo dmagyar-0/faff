@@ -6,7 +6,7 @@ import { AcceptanceRule, type Window } from "./acceptance-rule";
 import { WEEKDAYS, type Slot } from "./primitives";
 import { Temporal, type Instant } from "./time";
 
-const TZ = "Europe/London";
+const TZ = "Europe/London" as const;
 const MINUTE = 60_000;
 const FROM = Date.UTC(2026, 0, 1);
 const TO = Date.UTC(2029, 0, 1);
@@ -174,6 +174,18 @@ describe("evaluateAcceptance properties (fast-check, 2026–2028, both DST chang
         const start = spec.at.add({ minutes: offset });
         return { start: write(start, "Z"), end: write(start.add({ minutes }), "+01:00") };
       });
+  /** An extra absolute window overlapping or nested around the slot, so the union is exercised. */
+  const nearWindow = (spec: SlotSpec): fc.Arbitrary<Window> =>
+    fc
+      .tuple(fc.integer({ min: -240, max: 60 }), fc.integer({ min: 1, max: 480 }))
+      .map(([offset, minutes]) => {
+        const start = spec.at.add({ minutes: offset });
+        return {
+          kind: "absolute",
+          start: write(start, "Z"),
+          end: write(start.add({ minutes }), "+01:00"),
+        };
+      });
   /** Scenarios whose rule checks the calendar, with busy blocks near the slot. */
   const calendarScenarioArb = scenarioArb.chain((s) =>
     fc.record({
@@ -215,13 +227,19 @@ describe("evaluateAcceptance properties (fast-check, 2026–2028, both DST chang
 
   it("adding a window never turns accept into anything else", () => {
     fc.assert(
-      fc.property(scenarioArb, windowArb, busyListArb, ({ rule, spec, now }, extra, busy) => {
-        const slot = toSlot(spec, "+01:00");
-        const wider = AcceptanceRule.parse({ ...rule, windows: [...rule.windows, extra] });
-        if (run(rule, slot, busy, now).kind === "accept") {
-          expect(run(wider, slot, busy, now).kind).toBe("accept");
-        }
-      }),
+      fc.property(
+        scenarioArb.chain((sc) =>
+          fc.tuple(fc.constant(sc), fc.oneof(windowArb, nearWindow(sc.spec))),
+        ),
+        busyListArb,
+        ([{ rule, spec, now }, extra], busy) => {
+          const slot = toSlot(spec, "+01:00");
+          const wider = AcceptanceRule.parse({ ...rule, windows: [...rule.windows, extra] });
+          if (run(rule, slot, busy, now).kind === "accept") {
+            expect(run(wider, slot, busy, now).kind).toBe("accept");
+          }
+        },
+      ),
     );
   });
 
