@@ -7,6 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { ESLint } from "eslint";
+import picomatch from "picomatch";
 
 const root = path.resolve(import.meta.dirname, "..");
 const failures = [];
@@ -60,6 +61,16 @@ for (const [label, code] of Object.entries(mustPass)) {
   }
 }
 
+// The purity rules cover every TypeScript extension, not just .ts.
+for (const ext of ["tsx", "mts", "cts"]) {
+  const [result] = await eslint.lintText("export const t = Date.now();", {
+    filePath: path.join(root, `packages/core/src/__selftest__.${ext}`),
+  });
+  if (!result.messages.some((m) => m.ruleId === "no-restricted-properties")) {
+    failures.push(`core purity: Date.now() in a .${ext} file was not reported`);
+  }
+}
+
 // Tests in core are exempt: they may use the clock and vitest.
 {
   const [result] = await eslint.lintText("export const t = Date.now();", {
@@ -70,7 +81,23 @@ for (const [label, code] of Object.entries(mustPass)) {
   }
 }
 
-// --- 2. The dependency matrix -------------------------------------------------------------
+// --- 2. Next.js lint rules: apps/web only ------------------------------------------------
+
+{
+  const code = 'export const I = () => <img src="/a.png" alt="" />;';
+  const lint = async (file) => {
+    const [result] = await eslint.lintText(code, { filePath: path.join(root, file) });
+    return result.messages.some((m) => m.ruleId === "@next/next/no-img-element");
+  };
+  if (!(await lint("apps/web/src/app/__selftest__.tsx"))) {
+    failures.push("next lint: <img> in apps/web was not reported by @next/next/no-img-element");
+  }
+  if (await lint("packages/agents/src/__selftest__.tsx")) {
+    failures.push("next lint: a Next rule was applied outside apps/web");
+  }
+}
+
+// --- 3. The dependency matrix -------------------------------------------------------------
 
 const fixtures = {
   // A relative import across packages dodges pnpm; the matrix rule must still catch it.
@@ -82,6 +109,16 @@ const fixtures = {
   "packages/agents/src/__selftest__/workspace-db.ts": [
     "export { packageName } from '@faff/db';\n",
     "not-to-unresolvable",
+  ],
+  // apps/web may import core, db and agents only: never the tool server (spec 01, D3).
+  "apps/web/src/__selftest__/tools.ts": [
+    "export { packageName } from '../../../../packages/tools/src/index';\n",
+    "matrix:apps/web",
+  ],
+  // The worker may import every package, but never the web app.
+  "apps/worker/src/__selftest__/web.ts": [
+    "export { packageName } from '../../../web/src/index';\n",
+    "matrix:apps/worker",
   ],
   "packages/core/src/__selftest__/sibling.ts": [
     "export { packageName } from '../../../sim/src/index';\n",
@@ -128,6 +165,53 @@ try {
   for (const dir of written) fs.rmSync(dir, { recursive: true, force: true });
 }
 
+// --- 4. CODEOWNERS: claims.ts needs a review (I-12) --------------------------------------
+
+// GitHub applies the *last* matching line, and a line with no owners removes the requirement.
+// Patterns follow gitignore rules: a leading or inner "/" anchors to the repo root, otherwise the
+// pattern matches at any depth; a trailing "/" means a directory; a directory match covers
+// everything under it.
+function ownersFor(codeowners, file) {
+  const rules = codeowners
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("#"))
+    .map((line) => line.split(/\s+/));
+  const matches = (pattern) => {
+    let glob = pattern.replace(/\/$/, "");
+    const anchored = glob.startsWith("/") || glob.includes("/");
+    glob = glob.replace(/^\//, "");
+    if (!anchored) glob = `**/${glob}`;
+    const opts = { dot: true };
+    return picomatch.isMatch(file, glob, opts) || picomatch.isMatch(file, `${glob}/**`, opts);
+  };
+  const last = rules.findLast(([pattern]) => matches(pattern));
+  return last ? last.slice(1) : [];
+}
+
+const guarded = ["apps/web/content/claims.ts", ".github/CODEOWNERS"];
+const codeowners = fs.readFileSync(path.join(root, ".github/CODEOWNERS"), "utf8");
+for (const file of guarded) {
+  if (!fs.existsSync(path.join(root, file))) failures.push(`codeowners: ${file} is missing`);
+  if (ownersFor(codeowners, file).length === 0) {
+    failures.push(`codeowners: ${file} has no owner`);
+  }
+}
+
+// Each appended line takes the owner off claims.ts on GitHub, so the check above must see it.
+const ownerRemovals = ["*.ts", "*", "/apps/web/", "apps/", "claims.ts", "**/content/*", "/apps/**"];
+for (const line of ownerRemovals) {
+  if (ownersFor(`${codeowners}\n${line}\n`, guarded[0]).length > 0) {
+    failures.push(`codeowners: an ownerless "${line}" line was not seen to remove the owner`);
+  }
+}
+// ...and a later line that gives the file an owner again, or doesn't match it, must not.
+for (const line of ["*.md", "/docs/", "claims.tsx"]) {
+  if (ownersFor(`${codeowners}\n${line}\n`, guarded[0]).length === 0) {
+    failures.push(`codeowners: an unrelated "${line}" line was wrongly seen to remove the owner`);
+  }
+}
+
 // --- Result -------------------------------------------------------------------------------
 
 if (failures.length > 0) {
@@ -135,7 +219,8 @@ if (failures.length > 0) {
   for (const f of failures) console.error(`  ✗ ${f}`);
   process.exit(1);
 }
-const count = Object.keys(mustFail).length + Object.keys(mustPass).length + 1;
+const count = Object.keys(mustFail).length + Object.keys(mustPass).length + 4;
 console.log(
-  `Rails self-test passed: ${count} purity-lint cases, ${Object.keys(fixtures).length} dependency cases.`,
+  `Rails self-test passed: ${count} purity-lint cases, 2 Next lint cases, ` +
+    `${Object.keys(fixtures).length} dependency cases, ${guarded.length + ownerRemovals.length + 3} CODEOWNERS cases.`,
 );

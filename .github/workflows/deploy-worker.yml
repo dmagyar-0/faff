@@ -1,0 +1,74 @@
+# Deploys apps/worker to Fly.io (P7, M0 plan §5, PR 0.4). Manual only, from main.
+#
+# Skipped while the FLY_APP variable is unset. To enable:
+#   1. Create the Fly app in region lhr and set its DATABASE_URL secret (fly secrets set).
+#   2. GitHub environment `fly-prod`: deployment branches limited to `main`, secret
+#      FLY_API_TOKEN (a deploy token scoped to that app: fly tokens create deploy).
+#   3. Repo variable FLY_APP: the app's name (not a secret).
+#
+# The token is an *environment* secret, so a copy of this file on another branch can't read it:
+# GitHub refuses to start a `fly-prod` job for any ref but main.
+
+name: Deploy worker
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deploy at a time; never cancel one mid-flight.
+concurrency:
+  group: deploy-worker
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: vars.FLY_APP != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: fly-prod
+    env:
+      FLY_APP: ${{ vars.FLY_APP }}
+    steps:
+      # Only the deploy step sees the token itself; the gate sees whether it is set.
+      - id: gate
+        env:
+          HAS_TOKEN: ${{ secrets.FLY_API_TOKEN != '' }}
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Deploy the worker from main only (got $GITHUB_REF)."
+            exit 1
+          fi
+          if [ "$HAS_TOKEN" != "true" ]; then
+            echo "::notice::Skipping: set the FLY_API_TOKEN secret in the fly-prod environment."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.gate.outputs.ready == 'true'
+        uses: actions/checkout@v5
+      # Third-party action with the token in its environment: pinned to a commit (tag 1.6).
+      - if: steps.gate.outputs.ready == 'true'
+        uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # 1.6
+      # Fly's remote builder builds apps/worker/Dockerfile with the repo root as context.
+      # --ha=false keeps it to the one machine fly.toml describes.
+      - if: steps.gate.outputs.ready == 'true'
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: >-
+          flyctl deploy . --remote-only --ha=false --app "$FLY_APP"
+          --config apps/worker/fly.toml --dockerfile apps/worker/Dockerfile
+      # Flushes out a wrong DATABASE_URL or a networking gap to Supabase (M0-Q1).
+      - name: Health and readiness
+        if: steps.gate.outputs.ready == 'true'
+        run: |
+          base="https://$FLY_APP.fly.dev"
+          for path in healthz readyz; do
+            for i in $(seq 1 10); do
+              curl -fsS --max-time 10 "$base/$path" && echo && continue 2
+              sleep 3
+            done
+            echo "::error::$base/$path did not answer 200"
+            exit 1
+          done
