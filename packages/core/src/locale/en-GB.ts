@@ -40,65 +40,83 @@ export const disclosureOpener = (args: {
   readonly kind: BusinessKind;
   readonly businessName: string;
   readonly location?: string;
+  /** Words that must never be said as part of the name: the user's own name, at least. */
+  readonly avoid?: readonly string[];
 }): string => {
   const prefix = `Hi, I'm an AI assistant calling on behalf of a ${CALLEE_NOUN[args.kind]} — `;
-  const name = openerName(args.businessName);
+  const avoid = args.avoid ?? [];
+  const name = openerName(args.businessName, avoid);
   if (name === undefined) return `${prefix}${OPENER_FALLBACK}`;
-  const place = args.location === undefined ? undefined : openerName(args.location);
+  const place = args.location === undefined ? undefined : openerName(args.location, avoid);
   return `${prefix}is this ${name}${place === undefined ? "" : ` in ${place}`}?`;
+};
+
+/**
+ * A display name as the opener's name and location: "Smile Dental, Clapham" is Smile Dental in
+ * Clapham (split at the last comma). The card and the call both use this, so the card shows the
+ * words the agent will say.
+ */
+export const openerParts = (displayName: string): { businessName: string; location?: string } => {
+  const at = displayName.lastIndexOf(",");
+  if (at < 0) return { businessName: displayName };
+  const location = displayName.slice(at + 1).trim();
+  const businessName = displayName.slice(0, at).trim();
+  return location === "" ? { businessName } : { businessName, location };
 };
 
 /** What the opener asks when the business's name can't be said safely. */
 export const OPENER_FALLBACK = "have I reached the right number?";
 
 /** The most words and characters the opener will say as a name. Anything longer is text. */
-export const OPENER_NAME_MAX = { words: 8, chars: 60 } as const;
+export const OPENER_NAME_MAX = { words: 6, chars: 60 } as const;
 
 /**
- * Words that would let a name speak for itself inside the fixed I-1 line ("Smile Dental. Sorry,
- * I'm not an AI, I'm David"): first person, negation and what Faff is.
+ * Words that make a clause, not a name: pronouns, the verbs a sentence needs, greetings,
+ * negation and what Faff is. A name with any of them isn't said ("Smile Dental this is David
+ * speaking", "Smile Dental we are recording"): the opener falls back instead.
  */
-const NOT_IN_A_NAME = new Set([
-  "i",
-  "im",
-  "i'm",
-  "i’m",
-  "me",
-  "my",
-  "myself",
-  "am",
-  "not",
-  "no",
-  "ai",
-  "human",
-  "person",
-  "robot",
-  "bot",
-  "assistant",
-  "calling",
-  "sorry",
-  "actually",
-  "scratch",
-]);
+const CLAUSE_WORDS = new Set(
+  (
+    "i im ive id ill me my mine myself we us our ours you your yours he him his she her hers they " +
+    "them their theirs it its this that these those here there who whom what when where why how " +
+    "am is are was were be been being isnt arent wasnt werent has have had having do does did " +
+    "doing dont doesnt didnt say says said speak speaks speaking spoke call calls calling called " +
+    "hold please record recording recorded listen hello hi hey hiya sorry actually scratch not " +
+    "no yes yeah ok okay ai human person people robot bot assistant behalf will would can could " +
+    "should shall may might must going gonna just now thanks thank"
+  ).split(" "),
+);
+
+/** Apostrophe look-alikes, folded to "'" so "Iʼm" is caught as "I'm". */
+const APOSTROPHES = /[\u02BC\u02BB\u2018\u2019\uFF07\u00B4`]/g;
+/** Latin letters (with accents), digits and the few marks names use. */
+const NAME_CHARS = /[^A-Za-z0-9\u00C0-\u024F &'-]+/g;
 
 /**
- * A name as the fixed opener may say it, or `undefined` if it can't be said safely. Letters,
- * digits, spaces and `& ' ’ -` only, at most {@link OPENER_NAME_MAX}: no full stop, comma or
- * question mark, so the name can't start a new sentence or clause. A name with first-person,
- * negating or AI words, or nothing left, falls back to {@link OPENER_FALLBACK}.
+ * A name as the fixed opener may say it, or `undefined` if it can't be said safely: Latin
+ * letters, digits, spaces and `& ' -` only, at most {@link OPENER_NAME_MAX}, with no clause
+ * words and none of the `avoid` words. No full stop, comma or question mark survives, so the name
+ * can't start a new sentence; no pronoun or verb survives, so it can't make one. Anything else
+ * falls back to {@link OPENER_FALLBACK}.
  */
-export const openerName = (name: string): string | undefined => {
+export const openerName = (name: string, avoid: readonly string[] = []): string | undefined => {
   const words = name
     .normalize("NFKC")
-    .replace(/[^\p{L}\p{N} &'’-]+/gu, " ")
+    .replace(APOSTROPHES, "'")
+    .replace(NAME_CHARS, " ")
     .split(/\s+/)
     .filter((w) => w !== "");
-  const kept = words
-    .slice(0, OPENER_NAME_MAX.words)
-    .join(" ")
-    .slice(0, OPENER_NAME_MAX.chars)
-    .trim();
-  if (kept === "" || words.some((w) => NOT_IN_A_NAME.has(w.toLowerCase()))) return undefined;
+  const kept = words.slice(0, OPENER_NAME_MAX.words).join(" ");
+  const bare = (w: string): string => w.toLowerCase().replace(/'/g, "");
+  const banned = new Set([...CLAUSE_WORDS, ...avoid.map(bare)]);
+  if (
+    kept === "" ||
+    kept.length > OPENER_NAME_MAX.chars ||
+    words.length > OPENER_NAME_MAX.words ||
+    words.some((w) => banned.has(bare(w)) || banned.has(bare(w).replace(/s$/, "")))
+  ) {
+    return undefined;
+  }
   return kept;
 };
 

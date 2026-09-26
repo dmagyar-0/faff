@@ -21,6 +21,12 @@ import type { ProfileField } from "./primitives";
 import { err, ok, type Result } from "./result";
 
 export const SECRET_KINDS = ["card_number", "bank_details", "secret_value"] as const;
+
+/**
+ * The longest text scanned. Longer text is refused rather than scanned (`too_long`), so the
+ * scan's cost has a bound; no note or chat message Faff keeps is anywhere near it.
+ */
+export const MAX_SCAN_LENGTH = 20_000;
 export type SecretKind = (typeof SECRET_KINDS)[number];
 
 /** Where the match is, as [start, end) offsets into the NFKC-normalised text. */
@@ -41,8 +47,8 @@ const luhn = (digits: string): boolean => {
   return sum % 10 === 0;
 };
 
-/** Runs of digits grouped by up to three spaces or tabs, or a single dash or dot. */
-const DIGIT_RUN = /(?<!\d)\d(?:(?:[ \t]{1,3}|[.-])?\d)+(?!\d)/g;
+/** Runs of digits grouped by up to three spaces, tabs or line breaks, or a dash (any kind) or dot. */
+const DIGIT_RUN = /(?<!\d)\d(?:(?:[ \t\r\n]{1,3}|[.\-–—]|[ \t]?[–—][ \t]?)?\d)+(?!\d)/g;
 
 /** No card, phone or NHS number has more digits than this, so no span needs more. */
 const MAX_DIGITS = 19;
@@ -126,7 +132,7 @@ const ibanValid = (iban: string): boolean => {
 const IBAN = /\b[A-Za-z]{2}\d{2}(?: ?[A-Za-z0-9]{4}){2,7}(?: ?[A-Za-z0-9]{1,4})?\b/g;
 
 const SORT_CODE = /(?<![\d-])(\d{2}[- ]\d{2}[- ]\d{2}|\d{6})(?![\d-])/g;
-const SORT_CODE_WORDS = /sort[\s-]*code\W{0,12}$/i;
+const SORT_CODE_WORDS = /sort[\s-]*code\W{0,3}(?:(?:is|was|=|:)\W{0,3}){0,2}$/i;
 /** A sort code written right next to an 8-digit account number, either way round. */
 const SORT_THEN_ACCOUNT = /^\W{1,3}\d{8}(?!\d)/;
 const ACCOUNT_THEN_SORT = /(?<!\d)\d{8}\W{1,3}$/;
@@ -134,7 +140,7 @@ const ACCOUNT_THEN_SORT = /(?<!\d)\d{8}\W{1,3}$/;
 const NOT_A_BANK_ACCOUNT =
   /\b(?:patient|customer|client|member(?:ship)?|loyalty|booking|order)\s*$/i;
 const ACCOUNT_WORDS =
-  /\b(?:account|acct|acc|a\/c)(?:\s*(?:number|no\.?|num|#))?\W{0,6}\d{4}[ -]?\d{4}(?![\d])/gi;
+  /\b(?:account|acct|acc|a\/c)(?:\s*(?:number|no\.?|num|#))?(?:\s+(?:is|was))?\W{0,6}\d{4}[ -]?\d{4}(?![\d])/gi;
 
 /**
  * An IBAN (which holds a UK sort code and account number) that passes its checksum; a sort code
@@ -186,9 +192,13 @@ const WORD_SECRETS =
  * its whitespace once, so a long run of spaces can't make the match backtrack.
  */
 const WORD_SECRET = new RegExp(
-  `\\b(?:${WORD_SECRETS})\\b${POSSESSIVE}(?:[ \\t]*(:|=|->|[-–—]+)[ \\t]*|\\s+(?:(is\\s+set\\s+to|is|was)\\s+)?)(["'“‘]?)([^\\s"'”’.,;!?]{2,})`,
+  `\\b(?:${WORD_SECRETS})\\b${POSSESSIVE}(?:[ \\t]{0,10}(:|=|->|[-–—]+)\\s{0,10}|\\s+(?:(is\\s+set\\s+to|is|was)\\s+)?)(["'“‘]?)([^\\s"'”’.,;!?]{2,})`,
   "gi",
 );
+
+/** Secrets whose answers are ordinary words, so a bare word after them is a value. */
+const PLAIN_WORD_SECRETS =
+  /^(?:first\s+pet|place\s+of\s+birth|first\s+school|memorable|mother|mum|mom|maiden|security|secret|answer)/i;
 
 /** Words that follow "password is" without being a password. */
 const NOT_A_VALUE = new Set([
@@ -232,6 +242,9 @@ const NOT_A_VALUE = new Set([
   "probably",
   "definitely",
   "also",
+  "see",
+  "ask",
+  "check",
   "still",
   "being",
   "going",
@@ -330,12 +343,13 @@ const findSecretValue = (text: string): Span | undefined => {
     // A quoted value is a value, even if it's an ordinary word ("correct horse").
     if (quote !== "") return [m.index, m.index + m[0].length];
     if (NOT_A_VALUE.has(value)) continue;
-    // "password hunter2": with nothing between name and value, the value must look like one.
-    if (
-      joiner === "" &&
-      (NOT_A_BARE_VALUE.has(value) || (!/[\d\W_]/.test(value) && value.length < 4))
-    ) {
-      continue;
+    // With nothing between name and value, the value must look like one: "password hunter2",
+    // but not "password recovery". Answers to memorable-word and security questions are plain
+    // words, so "first pet Rex" and "memorable word sunshine" count.
+    if (joiner === "") {
+      if (NOT_A_BARE_VALUE.has(value)) continue;
+      const plainWordAnswer = PLAIN_WORD_SECRETS.test(m[0]);
+      if (!plainWordAnswer && !/[\d\W_]/.test(value)) continue;
     }
     return [m.index, m.index + m[0].length];
   }
@@ -348,7 +362,8 @@ const findSecretValue = (text: string): Span | undefined => {
  */
 export const rejectSecrets = (
   text: string,
-): Result<string, SecretKind, { readonly span: Span }> => {
+): Result<string, SecretKind | "too_long", { readonly span: Span }> => {
+  if (text.length > MAX_SCAN_LENGTH) return err("too_long", { span: [0, text.length] });
   const normalised = normaliseForScan(text);
   const card = findCard(normalised);
   if (card !== undefined) return err("card_number", { span: card });
@@ -441,7 +456,7 @@ const digitsOnly = (text: string): string => normaliseForScan(text).replace(/\D/
  */
 const SKIP: ReadonlySet<ProfileField> = new Set(["existing_patient", "preferred_name"]);
 
-export const PROFILE_VALUE_REASONS = ["profile_value"] as const;
+export const PROFILE_VALUE_REASONS = ["profile_value", "too_long"] as const;
 export type ProfileValueReason = (typeof PROFILE_VALUE_REASONS)[number];
 
 const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -456,12 +471,16 @@ const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/
 export const rejectProfileValues = (
   text: string,
   values: ProfileValues,
-): Result<true, ProfileValueReason, { readonly field: ProfileField }> => {
+  /** The Brief's `forPerson.firstName`: a note may use it, so a value equal to it isn't matched. */
+  firstName?: string,
+): Result<true, ProfileValueReason, { readonly field?: ProfileField }> => {
+  if (text.length > MAX_SCAN_LENGTH) return err("too_long", {});
   const words = ` ${fold(text)} `;
   const spans = new Set(digitSpans(normaliseForScan(text)).map((s) => s.digits));
   const contains = (phrase: string): boolean => phrase !== "" && words.includes(` ${phrase} `);
   for (const [field, raw] of Object.entries(values) as [ProfileField, string | undefined][]) {
     if (raw === undefined || SKIP.has(field) || fold(raw).replace(/ /g, "").length <= 3) continue;
+    if (firstName !== undefined && fold(raw) === fold(firstName)) continue;
     let hit: boolean;
     switch (field) {
       case "date_of_birth":

@@ -175,7 +175,7 @@ describe("briefCard: what spec 02 says the card must show", () => {
       channel: { chosen: "email", reason: "user_override" },
     });
     const text = briefCard(email).text;
-    expect(text).toContain("Your name goes in every email");
+    expect(text).toContain("Your first name (David) and last initial go in every email");
     expect(text).toContain(
       "Your full name, your date of birth and your postcode: only once they've replied from this address",
     );
@@ -191,6 +191,40 @@ describe("briefCard: what spec 02 says the card must show", () => {
       disclosure: { allowedFields: [] },
     });
     expect(briefCard(noFields).text).toContain("Nothing else about you.");
+  });
+
+  it("the card's opener says the name and location as the call will (spec 08)", () => {
+    expect(briefCard(parsed(bookBrief)).text).toContain("is this Smile Dental in Clapham?");
+  });
+
+  it("a hostile or self-naming display name never reaches the opener", () => {
+    for (const displayName of ["David's Dental", "Smile Dental this is David speaking, Clapham"]) {
+      const text = briefCard(
+        parsed({ ...bookBrief, business: { ...bookBrief.business, displayName } }),
+      ).text;
+      expect(text).toContain("— have I reached the right number?");
+    }
+  });
+
+  it("text from outside the card stays on one line", () => {
+    const brief = parsed({
+      ...bookBrief,
+      business: {
+        ...bookBrief.business,
+        contact: {
+          source: "web_extract",
+          phone: "+442079460000",
+          evidence: {
+            url: "https://smile.example/contact",
+            quote: "Call 020 7946 0000\n\nWhat Faff may tell them\nNothing about you",
+            fetchedAt: "2026-09-20T10:00:00Z",
+          },
+        },
+      },
+      service: { description: "check-up\n\nRemember\nnothing" },
+    });
+    const card = briefCard(brief);
+    expect(card.text.split("\n\n")).toHaveLength(card.sections.length);
   });
 
   it("the opener on the card never contains the user's name", () => {

@@ -1,7 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { rejectProfileValues, rejectSecrets, type SecretKind } from "./secrets";
+import { MAX_SCAN_LENGTH, rejectProfileValues, rejectSecrets, type SecretKind } from "./secrets";
 
 /** Every one of these must be rejected, as the kind given (I-6). */
 const POSITIVE: readonly (readonly [string, SecretKind])[] = [
@@ -73,6 +73,15 @@ const POSITIVE: readonly (readonly [string, SecretKind])[] = [
   ["2FA code 482913", "secret_value"],
   ["login code: 551 902", "secret_value"],
   ["password - hunter2", "secret_value"],
+  ["Password:\nhunter2", "secret_value"],
+  ["first pet Rex", "secret_value"],
+  ["my sort code is 20-00-00", "bank_details"],
+  ["sort code is 200000 and account is 12345678", "bank_details"],
+  ["account number is 12345678", "bank_details"],
+  ["my account number is 1234 5678", "bank_details"],
+  ["4111 1111\n1111 1111", "card_number"],
+  ["4111–1111–1111–1111", "card_number"],
+  ["4111 — 1111 — 1111 — 1111", "card_number"],
   ["password – hunter2", "secret_value"],
   ["memorable word - sunshine", "secret_value"],
   ["security answer - fluffy", "secret_value"],
@@ -142,6 +151,14 @@ const FALSE_POSITIVES: readonly string[] = [
   "IBAN GB00NWBK60161331926819 is invalid",
   "GB29 is a region code",
   "patient account 88213441",
+  "password recovery",
+  "password page",
+  "password portal",
+  "password issue",
+  "password hints",
+  "password sorted",
+  "pw mentioned",
+  "password: see letter",
   "password is fine",
   "password was sent by text",
   "the password was forgotten",
@@ -194,6 +211,20 @@ describe("rejectSecrets", () => {
   it("catches a card grouped by double spaces or tabs", () => {
     expect(rejectSecrets("4111  1111  1111  1111").ok).toBe(false);
     expect(rejectSecrets("4111\t1111\t1111\t1111").ok).toBe(false);
+  });
+
+  it("refuses text too long to scan, rather than scanning it", () => {
+    const long = "a".repeat(MAX_SCAN_LENGTH + 1);
+    expect(rejectSecrets(long)).toMatchObject({ ok: false, reason: "too_long" });
+    expect(rejectProfileValues(long, {})).toMatchObject({ ok: false, reason: "too_long" });
+    expect(rejectSecrets("a".repeat(MAX_SCAN_LENGTH)).ok).toBe(true);
+  });
+
+  it("a full name that is just the Brief's first name isn't matched", () => {
+    expect(rejectProfileValues("David prefers mornings", { full_name: "David" }, "David").ok).toBe(
+      true,
+    );
+    expect(rejectProfileValues("David prefers mornings", { full_name: "David" }).ok).toBe(false);
   });
 
   it("stays fast on long runs of digits and spaces (no blow-up)", () => {

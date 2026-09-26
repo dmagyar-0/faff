@@ -21,7 +21,7 @@ Acceptable times
 Accepts weekdays 09:00–12:00, from Thu 1 Oct 2026 to Sat 31 Oct 2026. Takes the earliest. Avoids clashes with your calendar, with 30 minutes either side.
 
 What Faff may tell them
-Your name goes in every email, with what you're asking for.
+Your first name (David) and last initial go in every email, with what you're asking for.
 Nothing else about you.
 
 Limits
@@ -37,7 +37,7 @@ Faff will say it's an AI. Some businesses will decline."
 exports[`briefCard: snapshots, one per verb > book 1`] = `
 "What
 Book at Smile Dental, Clapham (dentist), for David.
-Faff opens the call with: “Hi, I'm an AI assistant calling on behalf of a patient — is this Smile Dental Clapham?”
+Faff opens the call with: “Hi, I'm an AI assistant calling on behalf of a patient — is this Smile Dental in Clapham?”
 
 How
 By phone, because phone is the default.
@@ -66,7 +66,7 @@ Faff will say it's an AI. Some businesses will decline."
 exports[`briefCard: snapshots, one per verb > cancel 1`] = `
 "What
 Cancel at Smile Dental, Clapham (dentist), for David.
-Faff opens the call with: “Hi, I'm an AI assistant calling on behalf of a patient — is this Smile Dental Clapham?”
+Faff opens the call with: “Hi, I'm an AI assistant calling on behalf of a patient — is this Smile Dental in Clapham?”
 
 How
 By phone, because phone is the default.
@@ -98,7 +98,7 @@ Faff will say it's an AI. Some businesses will decline."
 exports[`briefCard: snapshots, one per verb > paired cancel 1`] = `
 "What
 Cancel at Smile Dental, Clapham (dentist), for David.
-Faff opens the call with: “Hi, I'm an AI assistant calling on behalf of a patient — is this Smile Dental Clapham?”
+Faff opens the call with: “Hi, I'm an AI assistant calling on behalf of a patient — is this Smile Dental in Clapham?”
 
 How
 By phone, because phone is the default.
@@ -130,7 +130,7 @@ Faff will say it's an AI. Some businesses will decline."
 exports[`briefCard: snapshots, one per verb > reschedule 1`] = `
 "What
 Reschedule at Smile Dental, Clapham (dentist), for David.
-Faff opens the call with: “Hi, I'm an AI assistant calling on behalf of a patient — is this Smile Dental Clapham?”
+Faff opens the call with: “Hi, I'm an AI assistant calling on behalf of a patient — is this Smile Dental in Clapham?”
 
 How
 By phone, because phone is the default.

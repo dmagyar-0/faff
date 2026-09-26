@@ -8,6 +8,7 @@ import {
   APPROVAL_CARD_REMINDER,
   CALLEE_NOUN,
   disclosureOpener,
+  openerParts,
   EMAIL_DISCLOSURE,
   writeDateTime,
 } from "../locale/en-GB";
@@ -76,7 +77,9 @@ const disclosureLines = (brief: Brief): string[] => {
       also === "" ? `Your first name (${name})` : `Your first name (${name}) and ${also}`;
     return [`${what}, and only once they've confirmed who they are.`];
   }
-  const lines = [`Your name goes in every email, with what you're asking for.`];
+  const lines = [
+    `Your first name (${name}) and last initial go in every email, with what you're asking for.`,
+  ];
   lines.push(
     also === ""
       ? "Nothing else about you."
@@ -92,7 +95,8 @@ const disclosureLines = (brief: Brief): string[] => {
 const disclosureWords = (brief: Brief): string[] => {
   const opener = disclosureOpener({
     kind: brief.business.kind,
-    businessName: brief.business.displayName,
+    ...openerParts(brief.business.displayName),
+    avoid: [brief.forPerson.firstName],
   });
   if (brief.channel.chosen === "phone") return [`Faff opens the call with: “${opener}”`];
   const lines = [`Every email is signed: “${EMAIL_DISCLOSURE}”`];
@@ -101,6 +105,12 @@ const disclosureWords = (brief: Brief): string[] => {
   }
   return lines;
 };
+
+/**
+ * Text from outside the card's own words (a web page's quote, the user's notes, the service) on
+ * one line, so it can't look like more of the card.
+ */
+const oneLine = (text: string): string => text.replace(/\s+/g, " ").trim();
 
 /** "P7D" → "7 days", "PT90M" → "90 minutes", "P1DT12H" → "1 day 12 hours". */
 export const durationWords = (duration: string): string => {
@@ -125,7 +135,7 @@ const contactLines = (brief: Brief): string[] => {
       ? "from your saved details"
       : c.source === "observations"
         ? "from Faff's records of earlier calls and emails"
-        : `found on ${c.evidence.url}, which says: “${c.evidence.quote}”`;
+        : `found on ${c.evidence.url}, which says: “${oneLine(c.evidence.quote)}”`;
   // The Brief refinement guarantees the chosen channel has its value.
   const lines = [`${value}, ${where}.`];
   if (brief.channel.chosen === "email" && c.phone !== undefined) {
@@ -143,9 +153,10 @@ const contactLines = (brief: Brief): string[] => {
 
 const serviceLines = (brief: Brief): string[] => {
   const s = brief.service;
-  const lines = [s.description.charAt(0).toUpperCase() + s.description.slice(1) + "."];
+  const description = oneLine(s.description);
+  const lines = [description.charAt(0).toUpperCase() + description.slice(1) + "."];
   if (s.durationMinutes !== undefined) lines.push(`About ${s.durationMinutes} minutes.`);
-  if (typeof s.practitioner === "string") lines.push(`Asks for ${s.practitioner}.`);
+  if (typeof s.practitioner === "string") lines.push(`Asks for ${oneLine(s.practitioner)}.`);
   if (s.practitioner === null) lines.push("Any practitioner.");
   if (s.isExistingCustomer === true)
     lines.push(`You're an existing ${CALLEE_NOUN[brief.business.kind]}.`);
@@ -186,7 +197,7 @@ export const briefCard = (brief: Brief): BriefCard => {
 
   if (brief.verb !== "book") {
     const a = brief.existingAppointment;
-    const ref = a.reference === undefined ? "" : ` (ref ${a.reference})`;
+    const ref = a.reference === undefined ? "" : ` (ref ${oneLine(a.reference)})`;
     sections.push({
       title: "Existing appointment",
       lines: [`${writeDateTime(Temporal.Instant.from(a.startsAt), tz)}${ref}.`],
@@ -224,7 +235,7 @@ export const briefCard = (brief: Brief): BriefCard => {
 
   if (brief.notesForAgent !== undefined && brief.notesForAgent !== "") {
     // One line, so a note can't look like more of the card.
-    const note = brief.notesForAgent.replace(/\s+/g, " ").trim();
+    const note = oneLine(brief.notesForAgent);
     sections.push({ title: "Notes for the agent (context only)", lines: [note] });
   }
 

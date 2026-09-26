@@ -14,6 +14,7 @@ import {
   APPROVAL_CARD_REMINDER,
   CAPABILITY_STATEMENT,
   disclosureOpener,
+  openerParts,
   emailSignature,
   isUkDialable,
   numberWords,
@@ -93,15 +94,39 @@ describe("I-1 strings match their fixtures byte for byte", () => {
       businessName: "One Two Three Four Five Six Seven Eight Nine Ten",
     });
     expect(long).toBe(
-      "Hi, I'm an AI assistant calling on behalf of a customer — is this One Two Three Four Five Six Seven Eight?",
+      "Hi, I'm an AI assistant calling on behalf of a customer — have I reached the right number?",
     );
+    // Clauses, a letter apostrophe that reads as "I'm", and the user's own name (review, PR 1.6).
+    for (const businessName of [
+      "Smile Dental this is David speaking",
+      "Smile Dental I\u02BCm David",
+      "Smile Dental we are recording",
+      "Smile Dental please hold",
+      "Smile Dental hello this is David",
+    ]) {
+      expect(disclosureOpener({ kind: "dentist", businessName, location: "Clapham" })).toBe(
+        "Hi, I'm an AI assistant calling on behalf of a patient — have I reached the right number?",
+      );
+    }
+    expect(
+      disclosureOpener({ kind: "dentist", businessName: "Davids Dental", avoid: ["David"] }),
+    ).toBe(
+      "Hi, I'm an AI assistant calling on behalf of a patient — have I reached the right number?",
+    );
+    expect(openerParts("Smile Dental, Clapham")).toEqual({
+      businessName: "Smile Dental",
+      location: "Clapham",
+    });
+    expect(openerParts("Smile Dental,")).toEqual({ businessName: "Smile Dental" });
+    expect(openerParts("Smile Dental")).toEqual({ businessName: "Smile Dental" });
   });
 
-  it("property: whatever the name, the opener is one question that says it's an AI and nothing else", () => {
-    const words = fc.constantFrom(
+  it("property: whatever the name, the opener is the fallback or 'is this <name>?' with no clause words", () => {
+    const vocabulary = fc.constantFrom(
       "Smile",
       "Dental",
       "I'm",
+      "I\u02BCm",
       "not",
       "AI",
       ".",
@@ -113,27 +138,56 @@ describe("I-1 strings match their fixtures byte for byte", () => {
       "\n",
       "St.",
       "&",
+      "this",
+      "is",
+      "we",
+      "are",
+      "speaking",
+      "hello",
+      "please",
+      "hold",
+      "recording",
+      "you",
+      "Clapham",
     );
+    const banned = [
+      "i",
+      "im",
+      "not",
+      "ai",
+      "this",
+      "is",
+      "we",
+      "are",
+      "speaking",
+      "hello",
+      "please",
+      "hold",
+      "recording",
+      "you",
+      "david",
+    ];
     fc.assert(
       fc.property(
         fc.oneof(
           fc.string(),
-          fc.array(words, { maxLength: 12 }).map((w) => w.join(" ")),
+          fc.array(vocabulary, { maxLength: 10 }).map((w) => w.join(" ")),
         ),
         fc.option(fc.string(), { nil: undefined }),
         (businessName, location) => {
-          const text = disclosureOpener(
-            location === undefined
-              ? { kind: "dentist", businessName }
-              : { kind: "dentist", businessName, location },
-          );
+          const args = { kind: "dentist" as const, businessName, avoid: ["David"] };
+          const text = disclosureOpener(location === undefined ? args : { ...args, location });
           const prefix = "Hi, I'm an AI assistant calling on behalf of a patient — ";
           expect(text.startsWith(prefix)).toBe(true);
           const rest = text.slice(prefix.length);
-          // One sentence, ending in the only question mark; no clause breaks from the name.
-          expect(rest.endsWith("?")).toBe(true);
-          expect(rest.slice(0, -1)).not.toMatch(/[?!.,;:\n"“”]/);
-          expect(rest.toLowerCase().split(/\s+/)).not.toContain("not");
+          if (rest === "have I reached the right number?") return;
+          expect(rest).toMatch(/^is this [^?!.,;:\n"“”]+\?$/);
+          const words = rest
+            .slice("is this ".length, -1)
+            .toLowerCase()
+            .replace(/'/g, "")
+            .split(/\s+/);
+          for (const w of words) expect(banned).not.toContain(w);
         },
       ),
     );
