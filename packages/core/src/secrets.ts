@@ -174,8 +174,45 @@ const findBank = (text: string): Span | undefined => {
       return [m.index, m.index + m[0].length];
     }
   }
+  // The words and the number anywhere in the same sentence: "the bank account number for
+  // direct debit is 12345678", "sort code for my account is 20.00.00".
+  for (const [start, sentence] of sentences(text)) {
+    const words = SENTENCE_ACCOUNT_WORDS.exec(sentence);
+    if (words !== null && !NOT_A_BANK_ACCOUNT.test(sentence.slice(0, words.index))) {
+      const number = ACCOUNT_NUMBER.exec(sentence.slice(words.index));
+      if (number !== null)
+        return [start + words.index, start + words.index + number.index + number[0].length];
+    }
+    const sort = SENTENCE_SORT_WORDS.exec(sentence);
+    if (sort !== null) {
+      const code = LOOSE_SORT_CODE.exec(sentence.slice(sort.index));
+      if (code !== null)
+        return [start + sort.index, start + sort.index + code.index + code[0].length];
+    }
+  }
   return undefined;
 };
+
+/**
+ * The text's sentences, each with its offset. A sentence ends at "!", "?", a line break, or a
+ * full stop before a space or the end ("PIN no. 4471" is one sentence).
+ */
+const sentences = (text: string): [number, string][] => {
+  const out: [number, string][] = [];
+  let start = 0;
+  for (const m of text.matchAll(/[!?\n]|(?<!\bno)\.(?=\s|$)/gi)) {
+    out.push([start, text.slice(start, m.index)]);
+    start = m.index + 1;
+  }
+  out.push([start, text.slice(start)]);
+  return out;
+};
+
+const SENTENCE_ACCOUNT_WORDS = /\b(?:account\s*(?:number|no\b\.?|num\b|#)|acct|a\/c)/i;
+/** 8 digits, together or as 4-4 or 2-2-2-2. */
+const ACCOUNT_NUMBER = /(?<![\d])\d{2}(?:[ -]?\d{2}){3}(?![\d])/;
+const SENTENCE_SORT_WORDS = /\b(?:sort[\s-]*code|s\/c)\b/i;
+const LOOSE_SORT_CODE = /(?<![\d])\d{2}[-. –—]?\d{2}[-. –—]?\d{2}(?![\d])/;
 
 /** A secret's name may be followed by "'s": "my PIN's 4471". */
 const POSSESSIVE = "(?:['’]s)?";
@@ -199,6 +236,25 @@ const WORD_SECRETS =
 const WORD_SECRET = new RegExp(
   `\\b(?:${WORD_SECRETS})\\b${POSSESSIVE}(?:[ \\t]{0,10}(:|=|->|[-–—]+)\\s{0,10}|\\s+(?:(is\\s+set\\s+to|is|was)\\s+)?)(["'“‘]?)([^\\s"'”’.,;!?]{2,})`,
   "gi",
+);
+
+/**
+ * A word secret's name, then up to 40 characters of the same sentence, then "it's", "it is",
+ * "tell them", "say", "is", "was", ":" or "=", then the value (group 2) and what follows it.
+ */
+const DISTANT_WORD_SECRET = new RegExp(
+  `\\b(?:${WORD_SECRETS})\\b[^.!?\\n]{0,40}?(?:\\b(?:it['’]?s|it\\s+is|tell\\s+them|say|is|was)\\s+|[:=]\\s*)(["'“‘]?)([^\\s"'”’.,;!?]{2,})(.{0,2})`,
+  "gi",
+);
+
+/** Words that start an instruction or a clause after "password:", not an answer. */
+const NOT_AN_ANSWER = new Set(
+  (
+    "say says tell ask hang call just dont don't refuse decline explain leave skip ignore " +
+    "they them you your he she we us i i'll ill it its it's we'll they'll can't cant won't wont " +
+    "to do does please use see check need needs have has should will would could can may might " +
+    "only still also then later"
+  ).split(" "),
 );
 
 /** Secrets whose answers are ordinary words, so a bare word after them is a value. */
@@ -337,8 +393,28 @@ const NOT_A_BARE_VALUE = new Set([
   "can",
 ]);
 
+/** A numeric secret's name anywhere in a sentence. */
+const NUMERIC_SECRET_NAME = new RegExp(`\\b(?:${NUMERIC_SECRETS})\\b`, "i");
+/**
+ * A PIN-like number: 3–8 digits on their own, not part of a date, time, price, phone number or
+ * longer group, and not a count ("6 digits", "10 minutes").
+ */
+const PIN_LIKE =
+  /(?<![\d/:.,+£$€]|\d[ -])\d{3,8}(?![\d/:]|[.,]\d|[ -]\d|\s*(?:digits?|minutes?|mins?|hours?|am|pm|%))/;
+
 const findSecretValue = (text: string): Span | undefined => {
   for (const m of text.matchAll(NUMERIC_SECRET)) return [m.index, m.index + m[0].length];
+  // A PIN and a number in the same sentence, in any order: "if they ask for my PIN, it's 4471",
+  // "4471 is my PIN". A bare mention ("they may ask for a PIN") has no number, so it passes.
+  for (const [start, sentence] of sentences(text)) {
+    const name = NUMERIC_SECRET_NAME.exec(sentence);
+    const value = name === null ? null : PIN_LIKE.exec(sentence);
+    if (name !== null && value !== null) {
+      const from = Math.min(name.index, value.index);
+      const to = Math.max(name.index + name[0].length, value.index + value[0].length);
+      return [start + from, start + to];
+    }
+  }
   for (const m of text.matchAll(WORD_SECRET)) {
     const [, symbol, word, quote, token] = m as unknown as [
       string,
@@ -352,6 +428,8 @@ const findSecretValue = (text: string): Span | undefined => {
     // A quoted value is a value, even if it's an ordinary word ("correct horse").
     if (quote !== "") return [m.index, m.index + m[0].length];
     if (NOT_A_VALUE.has(value)) continue;
+    // "memorable word: tell them to call me": after ":" or a dash, an instruction isn't a value.
+    if (symbol !== undefined && !/[\d\W_]/.test(value) && NOT_AN_ANSWER.has(value)) continue;
     // With nothing between name and value, the value must look like one: "password hunter2",
     // but not "password recovery". Answers to memorable-word and security questions are plain
     // words, so "first pet Rex" and "memorable word sunshine" count.
@@ -361,6 +439,19 @@ const findSecretValue = (text: string): Span | undefined => {
       if (!plainWordAnswer && !/[\d\W_]/.test(value)) continue;
     }
     return [m.index, m.index + m[0].length];
+  }
+  // The value later in the same sentence: "if they ask for the password, it's hunter2", "my
+  // password for the portal is hunter2", "the memorable word they have is sunshine".
+  for (const m of text.matchAll(DISTANT_WORD_SECRET)) {
+    const [, quote, token, after] = m as unknown as [string, string, string, string];
+    const value = token.toLowerCase();
+    if (quote !== "") return [m.index, m.index + m[0].length];
+    if (NOT_A_VALUE.has(value) || NOT_AN_ANSWER.has(value)) continue;
+    const looksLikeOne = /[\d\W_]/.test(value);
+    // A plain word counts for the plain-word secrets, when it ends the clause.
+    const plainAnswer =
+      PLAIN_WORD_SECRETS.test(m[0].replace(/^\W+/, "")) && /^\s*(?:[.,;!?]|$)/.test(after);
+    if (looksLikeOne || plainAnswer) return [m.index, m.index + m[0].length];
   }
   return undefined;
 };

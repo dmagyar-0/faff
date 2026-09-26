@@ -120,6 +120,8 @@ describe("I-1 strings match their fixtures byte for byte", () => {
       ["ı'm Dental", "Zoe"],
       ["Iam Real Dentist", "Zoe"],
       ["Smile Dental I-am-not-an-AI", "David"],
+      ["Jo's Salon", "Jo"],
+      ["Smile Dental Jo", "Jo"],
       ["Smile Dental this-is-David-speaking", "David"],
       ["Smile Dental Thís ís Dávid", "David"],
       ["Smile Dental Ím Dávid", "David"],

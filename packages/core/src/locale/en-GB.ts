@@ -125,14 +125,16 @@ const spokenForms = (word: string): string[] => {
 export const openerName = (name: string, avoid: readonly string[] = []): string | undefined => {
   const words = nameWords(name);
   const kept = words.slice(0, OPENER_NAME_MAX.words).join(" ");
-  // Each avoided name goes through the same steps, so "Mary Anne" and "D’Arcy" are caught. Its
-  // one- and two-letter pieces (the "D" of "D'Arcy") aren't banned on their own.
+  // Each avoided name goes through the same steps, so "Mary Anne" and "D’Arcy" are caught.
   const banned = new Set([
     ...CLAUSE_WORDS,
-    ...avoid
-      .flatMap(nameWords)
-      .flatMap(spokenForms)
-      .filter((f) => f.length > 2),
+    ...avoid.flatMap(nameWords).flatMap((w) => {
+      const forms = spokenForms(w);
+      // The whole word always ("Jo"); a short piece of a longer one ("D" of "D'Arcy") not alone.
+      return forms.length <= 2
+        ? forms
+        : forms.filter((f, i) => i === forms.length - 1 || f.length > 2);
+    }),
   ]);
   if (
     kept === "" ||
