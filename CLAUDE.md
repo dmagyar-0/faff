@@ -84,6 +84,19 @@ Internal packages export TypeScript source (`"exports": { ".": "./src/index.ts" 
 
 No network, clock, randomness, environment, console or database. Lint rejects `Date.now()`, `new Date()`, `Math.random()`, `Temporal.Now`, `fetch`, `process`, `crypto`, timers, `node:*` imports and any `@faff/*` import in `packages/core/src` (tests are exempt). Take `now`, IDs and data as arguments. This is what makes the property tests mean something, and what makes I-9's "deterministic, not an LLM judgement" true.
 
+## Pull requests
+
+The owner is the only person on the project: there are no human reviewers and no required approvals. A PR is done when CI is green and an independent review has nothing blocking left. (Owner, 2026-09-26.)
+
+1. One branch per PR, off the latest `main`. Run `pnpm check` before every push.
+2. **CI.** After opening the PR or pushing to it, watch CI until every job is green, fixing failures as they come. Once it's green, stop: no scheduled check-ins, no further watching.
+3. **Review.** Then start a review subagent in the same session. Give it only:
+   - the owner's intent for the PR: their request, verbatim;
+   - the diff: `git diff origin/main...HEAD` (leave out `pnpm-lock.yaml` and other generated files).
+   Give it nothing from the implementation: no reasoning, no PR description, no summary of choices. It may read the repo (spec, plans, this file) to check the diff against them.
+4. **Fix.** For each finding, fix it or say why not. Push, get CI green again, and review again with the new diff. Repeat until the reviewer has nothing blocking.
+5. **Report** to the owner: what was implemented, what the review found and what was fixed, and the proposed next step with a ready-to-paste prompt for it, based on the spec and the milestone plan.
+
 ## Don't
 
 - Commit secrets. Use `.env.example`; real values live in Vercel, Fly and GitHub secrets. CI runs gitleaks over the full history.
