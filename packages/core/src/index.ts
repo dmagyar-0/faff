@@ -11,4 +11,8 @@ export * from "./brief";
 export * from "./outcome";
 export * from "./observations";
 export * from "./canonical";
+export * from "./secrets";
+export * from "./locale/en-GB";
+export * from "./render/acceptance-rule";
+export * from "./render/brief-card";
 export { normalisePractitioner, samePractitioner } from "./practitioner";
