@@ -16,5 +16,16 @@ export const capabilityLine =
 export const limitations =
   "Faff always says it's an AI. It can't pass identity or security checks, some businesses will refuse to deal with it or hang up, and it can't guarantee a booking.";
 
+/**
+ * The onboarding capability statement (spec 05) and the reminder on every approval card
+ * (spec 02). The text lives in core's en-GB catalogue, because the card is rendered there and the
+ * catalogue is per locale (spec 12); it is re-exported here so every capability claim can be
+ * found from this file. `.github/CODEOWNERS` covers the catalogue too.
+ */
+export {
+  APPROVAL_CARD_REMINDER as approvalCardReminder,
+  CAPABILITY_STATEMENT as capabilityStatement,
+} from "@faff/core";
+
 /** Until M2 there is no product behind the page, and it must not suggest otherwise. */
 export const availability = "Faff isn't open yet.";

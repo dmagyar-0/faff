@@ -1,0 +1,31 @@
+{
+  "about": "The I-1 disclosure opener (spec 08). sha256 is of the UTF-8 bytes, computed with Python's hashlib.",
+  "cases": [
+    {
+      "input": {
+        "kind": "dentist",
+        "businessName": "Smile Dental",
+        "location": "Clapham"
+      },
+      "expected": "Hi, I'm an AI assistant calling on behalf of a patient — is this Smile Dental in Clapham?",
+      "sha256": "c3ef50b67c9fe48fa1b0c8b9c115ccad1cdcee4c8aa8c44119c8beb04db6e588"
+    },
+    {
+      "input": {
+        "kind": "garage",
+        "businessName": "Kwik Fit"
+      },
+      "expected": "Hi, I'm an AI assistant calling on behalf of a customer — is this Kwik Fit?",
+      "sha256": "98aaea4cc19b4776046ab999544ede662b28dcd254bf80fa4c561e191ab51cdd"
+    },
+    {
+      "input": {
+        "kind": "vet",
+        "businessName": "Łąka Vets",
+        "location": "Ealing"
+      },
+      "expected": "Hi, I'm an AI assistant calling on behalf of a client — is this Łąka Vets in Ealing?",
+      "sha256": "2d2ae5cad2722a1ee87659de9a1d0eec79fdb35ae8c1fab854e404513d68933e"
+    }
+  ]
+}

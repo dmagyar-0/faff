@@ -5,6 +5,8 @@
 import { Temporal } from "temporal-polyfill";
 
 export { Temporal };
+export type Instant = Temporal.Instant;
+export type PlainDate = Temporal.PlainDate;
 
 /** An RFC 3339 datetime with an offset, as an instant. The caller has already validated it. */
 export const instantOf = (iso: string): Temporal.Instant => Temporal.Instant.from(iso);

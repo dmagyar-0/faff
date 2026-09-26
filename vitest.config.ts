@@ -23,6 +23,9 @@ export default defineConfig({
       exclude: ["**/*.test.{ts,tsx}", "**/__selftest__/**"],
       reporter: ["text-summary", "json-summary"],
       thresholds: {
+        // M1 PR 1.6: text safety and locale.
+        "packages/core/src/secrets.ts": core(95),
+        "packages/core/src/{locale,render}/**/*.ts": CORE_90,
         // M1 PR 1.1: schemas and hashing.
         "packages/core/src/{acceptance-rule,brief,canonical,contact,observations,outcome}.ts":
           CORE_90,

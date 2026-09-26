@@ -38,7 +38,7 @@ type ResolvedContact = {
 1. **Disclosure plus identity question, in the fixed template (I-1):**
    > "Hi, I'm an AI assistant calling on behalf of a patient — is this Smile Dental in Clapham?"
 
-   (The noun varies by business type: patient, customer, client.)
+   (The noun comes from the Brief's `business.kind` (G19): *patient* for dentists, GPs, opticians, physios and clinics; *client* for vets and hair and beauty; *customer* otherwise. The template is `disclosureOpener` in `packages/core/src/locale/en-GB.ts`, tested byte for byte against a fixture.)
 2. The agent calls `confirm_business_identity(heard_name, heard_location)`.
    - **Match:** `identity_confirmed = true`. The agent then names the user ("I'm calling for David Example…") and continues.
    - **Mismatch / unclear after one clarification:** the agent apologises and ends the call ("Sorry, wrong number — have a good day"). A `number_wrong` observation is logged, and the cached profile for that business is invalidated. Resolution re-runs, excluding that number. This counts as an attempt. Whether Faff dials the new number without asking is decided by the deterministic check in [After a wrong number](#after-a-wrong-number) (Q39).

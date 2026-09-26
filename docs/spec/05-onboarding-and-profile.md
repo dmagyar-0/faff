@@ -42,7 +42,15 @@ These have no enum value and cannot be stored anywhere:
 - Payment details: card numbers, bank account and sort code.
 - Anything that works as an authentication secret: memorable words, mother's maiden name, passwords, PINs, one-time codes, security-question answers.
 
-Free-text inputs (chat messages persisted into Briefs, `notesForAgent`, user-business notes) pass through `rejectSecrets()`, which uses card-number (Luhn), sort-code/account and keyword patterns. On a match, the write is rejected and the chat agent explains why. **Why this is structural rather than a policy:** if Faff never holds a security answer, it *cannot* be used to impersonate the user, whatever a prompt says.
+Free-text inputs (chat messages persisted into Briefs, `notesForAgent`, user-business notes) pass through `rejectSecrets()` (`packages/core/src/secrets.ts`), after NFKC normalisation so full-width digits can't slip past. On a match, the write is rejected and the chat agent explains why. It looks for:
+
+- **Card numbers:** 13–19 digits in any grouping of single spaces or dashes, starting 2–6, Luhn-valid.
+- **Bank details:** a sort code with "sort code" just before it or an 8-digit account number directly beside it, or "account number" followed by 8 digits. A bare `14-10-26` is a date, not a sort code, even next to a booking reference.
+- **A secret with its value (M1-Q8a):** a secret's name followed by something that looks like its value ("my PIN is 4471", "password: hunter2", "mother's maiden name is Smith"). A bare mention passes: "they may ask for a PIN — say you don't have it" is exactly the note Faff wants.
+
+Both a positive corpus and a false-positive corpus (phone numbers, dates, times, postcodes, booking references, NHS-style numbers, mentions without a value) are tests.
+
+**The user's own profile values (G21, M1-Q8b).** `notesForAgent` goes into the phone prompt, so a date of birth typed into the notes would reach the agent around `reveal_profile_field` (D3, I-7). At draft time the web server also runs `rejectProfileValues(notes, values)` with the user's profile values, which matches every usual spelling (a date of birth as `04/03/1985`, `4 March 1985` or `4th of March 85`; a postcode with or without its space; a phone number with `+44` or `0`). **Why this is structural rather than a policy:** if Faff never holds a security answer, it *cannot* be used to impersonate the user, whatever a prompt says.
 
 ### The phone agent's view
 
