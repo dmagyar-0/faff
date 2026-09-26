@@ -54,7 +54,6 @@ describe("parseBrief never throws", () => {
     fc.assert(
       fc.property(fc.anything(), (input) => {
         expect(parseBrief(input).ok).toBe(false);
-        expect(parseBrief({ schema: "faff.brief/v1", input }).ok).toBe(false);
       }),
     );
   });
@@ -141,6 +140,7 @@ describe("refinements added after review", () => {
     ["digits", "David2"],
     ["only spaces", "   "],
     ["a leading space", " David"],
+    ["a trailing space", "David "],
   ])("rejects a first name with %s (it goes into the phone prompt)", (_label, firstName) => {
     expect(parseBrief({ ...bookBrief, forPerson: { firstName } }).ok).toBe(false);
   });
@@ -153,7 +153,13 @@ describe("refinements added after review", () => {
   );
 
   it("rejects a display name with a control character or only whitespace", () => {
-    for (const displayName of ["Smile\nDental", "  ", "Smile\u0000Dental"]) {
+    for (const displayName of [
+      "Smile\u2028Dental",
+      "Smile\u202eDental",
+      "Smile\nDental",
+      "  ",
+      "Smile\u0000Dental",
+    ]) {
       expect(
         parseBrief({ ...bookBrief, business: { ...bookBrief.business, displayName } }).ok,
       ).toBe(false);

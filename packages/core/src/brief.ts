@@ -87,7 +87,10 @@ export type Limits = z.infer<typeof Limits>;
 const PersonName = z
   .string()
   .max(50)
-  .regex(/^\p{L}[\p{L}\p{M} '’.-]*$/u, "A first name: letters, spaces, ' ’ . and - only");
+  .regex(
+    /^\p{L}(?:[\p{L}\p{M} '’.-]*[\p{L}\p{M}.])?$/u,
+    "A first name: letters, spaces, ' ’ . and - only, starting with a letter",
+  );
 
 /** A single line of display text: no control characters, not blank. */
 const DisplayLine = (max: number) =>
@@ -95,7 +98,10 @@ const DisplayLine = (max: number) =>
     .string()
     .min(1)
     .max(max)
-    .regex(/^(?![\s\S]*\p{Cc})[\s\S]*\S[\s\S]*$/u, "One line of text, not blank");
+    .regex(
+      /^(?![\s\S]*[\p{Cc}\p{Cf}\p{Zl}\p{Zp}])[\s\S]*\S[\s\S]*$/u,
+      "One line of text, not blank",
+    );
 
 const Business = z
   .strictObject({
@@ -201,6 +207,7 @@ export const BRIEF_REFINEMENTS = [
   "A practitioner name must still name someone once titles and punctuation are removed.",
   "limits.maxLifetime is between PT1H and P30D.",
   "cancel.pairedWithBriefId must differ from briefId.",
+  "business.contact.evidence.url must parse as an absolute http(s) URL (the pattern here checks only the scheme).",
   "Every UUID is lowercase, so an id has one spelling.",
   "A datetime has at most 9 fractional-second digits.",
   "disclosure.allowedFields lists each field once.",

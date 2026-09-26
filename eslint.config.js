@@ -50,6 +50,7 @@ const corePurity = (allowTemporal = false) => ({
   ],
   "no-restricted-globals": [
     "error",
+    ...(allowTemporal ? [] : [{ name: "Temporal", message: temporalOnlyInTime.message }]),
     ...[
       "fetch",
       "XMLHttpRequest",

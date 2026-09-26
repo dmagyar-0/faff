@@ -1,5 +1,5 @@
 {
-  "about": "book-full with non-ASCII written as \\u escapes in the JSON source. Same hash as book-full.",
+  "about": "book-full with non-ASCII written as \\u escapes in the JSON source. Same hash as book-full. A regression anchor: JSON parsing already resolves the escapes, so this guards the pipeline, not canonicalJson.",
   "hash": "sha256:6b93efc9b2be459b9c9766f100cfaacdc5a9ba649c13c5a28f93daf9200d1b88",
   "brief": {
     "schema": "faff.brief/v1",

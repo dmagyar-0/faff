@@ -45,6 +45,10 @@ const mustFail = {
     "import 'temporal-polyfill/global';\nexport const x = 1;",
     "no-restricted-imports",
   ],
+  "a global Temporal outside time.ts": [
+    "export const t = (s: string) => Temporal.Instant.from(s);",
+    "no-restricted-globals",
+  ],
   "temporal-polyfill outside time.ts": [
     "import { Temporal } from 'temporal-polyfill';\nexport { Temporal };",
     "no-restricted-imports",

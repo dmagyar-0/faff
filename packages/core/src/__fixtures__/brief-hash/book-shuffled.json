@@ -1,5 +1,5 @@
 {
-  "about": "book-full with every object's keys reversed and integers written as 1.0, 30.0 and 24.0. Same hash as book-full.",
+  "about": "book-full with every object's keys reversed and integers written as 1.0, 30.0 and 24.0. Same hash as book-full. A regression anchor: JSON parsing already makes 30.0 and 30 the same number, so this guards the pipeline, not canonicalJson (the RFC 8785 vectors cover number spelling).",
   "hash": "sha256:6b93efc9b2be459b9c9766f100cfaacdc5a9ba649c13c5a28f93daf9200d1b88",
   "brief": {
     "notesForAgent": "Prefers mornings 🌅 — ask for the hygienist too",
