@@ -39,7 +39,7 @@ type ResolvedContact = {
    > "Hi, I'm an AI assistant calling on behalf of a patient — is this Smile Dental in Clapham?"
 
    (The noun varies by business type: patient, customer, client.)
-2. The agent calls `confirm_business_identity(heard_name, heard_location)`.
+2. The agent calls `confirm_business_identity(heard_name, heard_location)`, which runs `matchBusinessIdentity` in `core` (G9): case-folded words with generic ones ("the", "practice", "surgery", "ltd"…) removed, compared with the display name, the part before its comma, the name without its location, and each alias, by the better of word overlap and spelling with the spaces taken out (so "smile dent all" matches Smile Dental). A heard location must agree too. The thresholds (match ≥ 0.8, mismatch ≤ 0.4, unclear between) are provisional until the M6 noise scenarios tune them.
    - **Match:** `identity_confirmed = true`. The agent then names the user ("I'm calling for David Example…") and continues.
    - **Mismatch / unclear after one clarification:** the agent apologises and ends the call ("Sorry, wrong number — have a good day"). A `number_wrong` observation is logged, and the cached profile for that business is invalidated. Resolution re-runs, excluding that number. This counts as an attempt. Whether Faff dials the new number without asking is decided by the deterministic check in [After a wrong number](#after-a-wrong-number) (Q39).
 3. Until the identity is confirmed, `reveal_profile_field` refuses every field, **including `full_name`**.
@@ -53,11 +53,13 @@ type ResolvedContact = {
 **(Q39)** `mayAutoSwitchContact(task, brief, newContact, observations) → ok | reason` is a pure function in `core`. Faff dials the new contact without a new approval only if every condition holds:
 
 1. `brief.business.contactPolicy.autoSwitchOnWrongNumber` is true.
-2. The source is `user_memory`, **or** `web_extract` whose evidence URL is on the business's own domain or the NHS service directory (not a third-party directory).
+2. The source is `user_memory`, **or** `web_extract` whose evidence URL is on the business's own domain (`businesses.website`, G20) or the NHS service directory (not a third-party directory), and whose citation still holds on the re-fetched page.
 3. The value has no `number_wrong` observation for this business.
 4. The evidence page names the business's display name and matches its postcode or address.
 5. The task hasn't switched contact automatically before (at most one switch per task).
 6. `limits` still allow a dial (I-8).
+
+The check is `mayAutoSwitchContact` in `packages/core/src/contact-switch.ts`. Each failed condition has its own reason code (`auto_switch_disabled`, `no_new_number`, `same_number`, `source_not_trusted`, `citation_failed`, `known_wrong_number`, `page_does_not_name_business`, `already_switched`, `limits_exhausted`), so the escalation can say which one failed. Condition 6 takes the limits verdict as an input, so the guard and the dialler can't disagree.
 
 On success the worker records a `contact_switched` task event with the new `ResolvedContact` and its evidence, and dials that contact from then on. The Brief revision is never edited. The report shows the switch. On any failure the task escalates with `wrong_business_unresolved` and a suggested action to approve the new number. The identity check above still runs on the new call, so disclosure stays protected (I-7).
 
