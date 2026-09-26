@@ -94,7 +94,7 @@ type E164 = string;                // "+442079460000"
 
 ### Field rules
 
-- **`notesForAgent` cannot expand authority.** The phone-agent prompt includes it under a heading that says so explicitly. The tool guards ignore it. It is scanned for secrets on write (I-6).
+- **`notesForAgent` cannot expand authority.** The phone-agent prompt includes it under a heading that says so explicitly. The tool guards ignore it. It is scanned for secrets on write (I-6), and rejected if it contains one of the user's own profile values (G21, [05](05-onboarding-and-profile.md#hard-exclusions-i-6)).
 - **`disclosure.allowedFields` defaults** come from the profile's per-field defaults ([05](05-onboarding-and-profile.md)). The user can narrow the list for a single Brief. Widening it beyond the profile default is allowed but is highlighted in the approval UI.
 - **`channel` is visible and can be overridden** before approval (Q29). The reason is always shown.
 - **`business.contact` shows its evidence** (source URL and quoted text for web-found contacts). Per Q31 the user isn't asked to confirm it separately, but approving the Brief is informed approval.

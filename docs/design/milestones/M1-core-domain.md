@@ -187,7 +187,7 @@ Obfuscated addresses (`info [at] …`) fail the check. That's correct: I-11 woul
 - The disclosure opener: `"Hi, I'm an AI assistant calling on behalf of a {noun} — is this {businessName}{, in location}?"`. Noun by business kind (patient, customer, client). The voicemail greeting and the capability statement, verbatim from the spec.
 - The **email signature**, verbatim from spec 07, with the domain as a parameter (no domain exists yet, Q-D). A test checks the rendered signature bytes against a fixture.
 - Date and time speech ("Tuesday the fourteenth of October at half past nine"), the E&W bank holiday list for 2026–2028, NHS directory domains, the `+44` dialability check (G12).
-- `render/briefCard(brief) → { sections, text }`, `render/acceptanceRule(rule) → string`, `render/escalationSummary(escalation) → string`. Snapshot tests on a fixture Brief per verb.
+- `render/briefCard(brief) → { sections, text }`, `render/acceptanceRule(rule) → string`, `render/escalationSummary(escalation) → string` (moved to PR 1.4, next to the `Escalation` type it renders, with its own snapshot). Snapshot tests on a fixture Brief per verb.
 
 Every string here is a legal artefact under spec 12. The file gets a `CODEOWNERS` entry, like `claims.ts`.
 

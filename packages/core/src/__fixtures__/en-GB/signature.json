@@ -1,0 +1,6 @@
+{
+  "about": "Spec 07's fixed signature, with the domain 'faff.example' in place of faff.<tld>. sha256 is of the UTF-8 bytes, computed with Python's hashlib.",
+  "domain": "faff.example",
+  "expected": "—\nSent by Faff, an AI assistant acting on behalf of the person named above. Faff is not that person and cannot answer security questions for them. Reply to this email and Faff will pass it on. faff.example/about-this-email",
+  "sha256": "219471ac7d179fcd8044fa36baf9c1855dae48c6a97e7aa06a5e9e03a83a4b40"
+}

@@ -194,7 +194,7 @@ try {
   for (const dir of written) fs.rmSync(dir, { recursive: true, force: true });
 }
 
-// --- 4. CODEOWNERS: claims.ts needs a review (I-12) --------------------------------------
+// --- 4. CODEOWNERS: claims.ts and the en-GB catalogue need a review (I-1, I-12) ------------
 
 // GitHub applies the *last* matching line, and a line with no owners removes the requirement.
 // Patterns follow gitignore rules: a leading or inner "/" anchors to the repo root, otherwise the
@@ -218,7 +218,15 @@ function ownersFor(codeowners, file) {
   return last ? last.slice(1) : [];
 }
 
-const guarded = ["apps/web/content/claims.ts", ".github/CODEOWNERS"];
+const guarded = [
+  "apps/web/content/claims.ts",
+  "packages/core/src/locale/en-GB.ts",
+  "packages/core/src/render/brief-card.ts",
+  "packages/core/src/render/acceptance-rule.ts",
+  "packages/core/src/__fixtures__/en-GB/opener.json",
+  "packages/core/src/__fixtures__/en-GB/signature.json",
+  ".github/CODEOWNERS",
+];
 const codeowners = fs.readFileSync(path.join(root, ".github/CODEOWNERS"), "utf8");
 for (const file of guarded) {
   if (!fs.existsSync(path.join(root, file))) failures.push(`codeowners: ${file} is missing`);
