@@ -13,9 +13,16 @@ export const AbsoluteWindow = z
     start: IsoDateTime,
     end: IsoDateTime,
   })
-  .refine((w) => compareIso(w.start, w.end) < 0, {
-    message: "An absolute window must end after it starts",
-    path: ["end"],
+  .superRefine((w, ctx) => {
+    const order = compareIso(w.start, w.end);
+    // Unreadable datetimes already carry a format issue; the order isn't defined for them.
+    if (order !== undefined && order >= 0) {
+      ctx.addIssue({
+        code: "custom",
+        message: "An absolute window must end after it starts",
+        path: ["end"],
+      });
+    }
   });
 
 /**

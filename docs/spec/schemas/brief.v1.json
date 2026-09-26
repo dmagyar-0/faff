@@ -182,7 +182,7 @@
   ],
   "$id": "https://faff.app/schemas/brief.v1.json",
   "title": "faff.brief/v1",
-  "description": "The Faff Task Brief (docs/spec/02-task-brief.md). Every datetime is RFC 3339 with an offset. Rules this schema can't express, which the reference validator (packages/core BriefV1) also enforces: channel.chosen = \"phone\" needs business.contact.phone; \"email\" needs business.contact.email. business.contact needs a phone number or an email address. An absolute window must end after it starts, compared as instants. A recurring window lists each weekday once, has from ≠ to, and between.start ≤ between.end. When service.practitioner and acceptance.practitioner.mustBe are both set they must name the same person (case, titles and punctuation ignored). cancel.pairedWithBriefId must differ from briefId. disclosure.allowedFields lists each field once. Every string is well-formed Unicode (no lone surrogates), so the Brief has a canonical form.",
+  "description": "The Faff Task Brief (docs/spec/02-task-brief.md). Every datetime is RFC 3339 with an offset. Rules this schema can't express, which the reference validator (packages/core BriefV1) also enforces: channel.chosen = \"phone\" needs business.contact.phone; \"email\" needs business.contact.email. business.contact needs a phone number or an email address. An absolute window must end after it starts, compared as instants. A recurring window lists each weekday once, has from ≠ to, and between.start ≤ between.end. When service.practitioner and acceptance.practitioner.mustBe are both set they must name the same person (case, titles and punctuation ignored). service.practitioner must not be one of acceptance.practitioner.avoid. A practitioner name must still name someone once titles and punctuation are removed. limits.maxLifetime is between PT1H and P30D. cancel.pairedWithBriefId must differ from briefId. Every UUID is lowercase, so an id has one spelling. A datetime has at most 9 fractional-second digits. disclosure.allowedFields lists each field once. Every string is well-formed Unicode (no lone surrogates), so the Brief has a canonical form.",
   "$defs": {
     "Uuid": {
       "type": "string",
@@ -260,6 +260,7 @@
     },
     "E164": {
       "type": "string",
+      "maxLength": 16,
       "pattern": "^\\+[1-9]\\d{6,14}$",
       "description": "E.164 phone number, e.g. +442079460000"
     },
@@ -278,7 +279,7 @@
     "Evidence": {
       "type": "object",
       "properties": {
-        "url": { "type": "string", "maxLength": 2048, "format": "uri" },
+        "url": { "type": "string", "maxLength": 2048, "pattern": "^https?:\\/\\/" },
         "quote": { "type": "string", "minLength": 1, "maxLength": 1000 },
         "fetchedAt": { "$ref": "#/$defs/DateTime" }
       },
@@ -433,6 +434,7 @@
     "Weekday": { "type": "string", "enum": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] },
     "WallTime": {
       "type": "string",
+      "maxLength": 5,
       "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$",
       "description": "Wall-clock time HH:MM (24-hour) in the Brief's timezone"
     },

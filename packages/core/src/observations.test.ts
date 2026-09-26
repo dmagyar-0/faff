@@ -11,32 +11,45 @@ type JsonSchema = {
   const?: unknown;
   maxLength?: number;
   properties?: Record<string, JsonSchema>;
+  patternProperties?: Record<string, JsonSchema>;
+  additionalProperties?: JsonSchema | boolean;
   items?: JsonSchema;
+  prefixItems?: JsonSchema[];
   anyOf?: JsonSchema[];
   oneOf?: JsonSchema[];
+  allOf?: JsonSchema[];
 };
 
-/** Every string leaf, with its path, in a JSON Schema. */
+/** Every string leaf, with its path, in a JSON Schema. An `allOf` on a string is merged in. */
 const stringLeaves = (schema: JsonSchema, path: string): [string, JsonSchema][] => {
-  const out: [string, JsonSchema][] = [];
-  if (schema.type === "string") out.push([path, schema]);
-  for (const [key, child] of Object.entries(schema.properties ?? {})) {
-    out.push(...stringLeaves(child, `${path}.${key}`));
+  if (schema.type === "string") {
+    const merged = (schema.allOf ?? []).reduce<JsonSchema>((acc, s) => ({ ...acc, ...s }), schema);
+    return [[path, merged]];
   }
-  if (schema.items) out.push(...stringLeaves(schema.items, `${path}[]`));
-  for (const [i, child] of [...(schema.anyOf ?? []), ...(schema.oneOf ?? [])].entries()) {
-    out.push(...stringLeaves(child, `${path}|${i}`));
-  }
-  return out;
+  const children: [string, JsonSchema][] = [
+    ...Object.entries(schema.properties ?? {}),
+    ...Object.entries(schema.patternProperties ?? {}),
+    ...(typeof schema.additionalProperties === "object"
+      ? [["*", schema.additionalProperties] as [string, JsonSchema]]
+      : []),
+    ...(schema.items ? [["[]", schema.items] as [string, JsonSchema]] : []),
+    ...(schema.prefixItems ?? []).map((s, i) => [`[${i}]`, s] as [string, JsonSchema]),
+    ...[...(schema.anyOf ?? []), ...(schema.oneOf ?? []), ...(schema.allOf ?? [])].map(
+      (s, i) => [`|${i}`, s] as [string, JsonSchema],
+    ),
+  ];
+  return children.flatMap(([key, child]) => stringLeaves(child, `${path}.${key}`));
 };
 
-/** A bound that rules out prose: a format, an enum or const, or a pattern with a short cap. */
+/**
+ * A bound that rules out prose: a format, an enum or const, or a pattern with a short length cap.
+ * A pattern alone isn't enough: `^.*$` is a pattern.
+ */
 const rulesOutProse = (s: JsonSchema): boolean =>
   s.format !== undefined ||
   s.enum !== undefined ||
   s.const !== undefined ||
-  (s.pattern !== undefined && s.maxLength !== undefined && s.maxLength <= 40) ||
-  (s.pattern !== undefined && /^\^[^ ]*\$$/.test(s.pattern) && !s.pattern.includes(" "));
+  (s.pattern !== undefined && s.maxLength !== undefined && s.maxLength <= 40);
 
 describe("observation value schemas (D10: no free text)", () => {
   it("has one value schema per kind", () => {
@@ -61,11 +74,27 @@ describe("observation value schemas (D10: no free text)", () => {
     expect(stringLeaves(inline(observationValues.email_reply_latency), "x")).toHaveLength(2);
   });
 
-  it("the walk does catch an unbounded string", () => {
-    const leaves = stringLeaves(z.toJSONSchema(z.object({ note: z.string() })) as JsonSchema, "x");
-    expect(leaves.map(([, s]) => rulesOutProse(s))).toEqual([false]);
-    const bounded = z.toJSONSchema(z.object({ note: z.string().max(500) })) as JsonSchema;
-    expect(stringLeaves(bounded, "x").map(([, s]) => rulesOutProse(s))).toEqual([false]);
+  it("the walk catches strings that could hold prose, wherever they are", () => {
+    const caught = (schema: z.ZodType): boolean[] =>
+      stringLeaves(inline(schema), "x").map(([, leaf]) => rulesOutProse(leaf));
+    expect(caught(z.object({ note: z.string() }))).toEqual([false]);
+    expect(caught(z.object({ note: z.string().max(500) }))).toEqual([false]);
+    expect(caught(z.object({ note: z.string().regex(/^.*$/) }))).toEqual([false]);
+    expect(
+      caught(
+        z.object({
+          note: z
+            .string()
+            .regex(/^[\w\s]+$/)
+            .max(500),
+        }),
+      ),
+    ).toEqual([false]);
+    expect(caught(z.record(z.string(), z.string()))).toEqual([false]);
+    expect(caught(z.tuple([z.string()]))).toEqual([false]);
+    expect(
+      caught(z.object({ ok: z.enum(["a"]), code: z.string().max(10).regex(/^\d+$/) })),
+    ).toEqual([true, true]);
   });
 
   it("rejects a spoken IVR step that is a sentence", () => {

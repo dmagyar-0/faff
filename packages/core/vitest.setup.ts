@@ -5,5 +5,9 @@ import fc from "fast-check";
  * reproducible: fast-check prints the seed and the counterexample path when a property fails.
  * Set FC_SEED to explore other seeds locally. Tests may raise `numRuns`, never lower it.
  */
-const seed = Number(process.env["FC_SEED"] ?? 20260924);
+const raw = process.env["FC_SEED"];
+const seed = raw === undefined ? 20260924 : Number(raw);
+if (raw !== undefined && (raw.trim() === "" || !Number.isSafeInteger(seed))) {
+  throw new Error(`FC_SEED must be an integer, got ${JSON.stringify(raw)}`);
+}
 fc.configureGlobal({ numRuns: 1000, seed });

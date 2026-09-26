@@ -31,7 +31,12 @@ export type SourceKind = (typeof SOURCE_KINDS)[number];
 
 /** One IVR step: a keypad entry, or a short spoken menu choice ("bookings"). */
 export const IvrStep = z.union([
-  z.strictObject({ dtmf: z.string().regex(/^[0-9*#]{1,10}$/) }),
+  z.strictObject({
+    dtmf: z
+      .string()
+      .max(10)
+      .regex(/^[0-9*#]{1,10}$/),
+  }),
   z.strictObject({
     say: z
       .string()

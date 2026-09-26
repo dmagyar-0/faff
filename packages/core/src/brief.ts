@@ -12,7 +12,14 @@ import { z } from "zod";
 
 import { AcceptanceRule } from "./acceptance-rule";
 import { ResolvedContact } from "./contact";
-import { AppointmentRef, Duration, PractitionerName, ProfileField, Uuid } from "./primitives";
+import {
+  AppointmentRef,
+  Duration,
+  durationSeconds,
+  PractitionerName,
+  ProfileField,
+  Uuid,
+} from "./primitives";
 import { samePractitioner } from "./practitioner";
 import { err, ok, type Result } from "./result";
 
@@ -52,13 +59,23 @@ export const DEFAULT_LIMITS = {
 } as const;
 export const DEFAULT_EMAIL_FALLBACK_WORKING_DAYS = 2;
 
+/** `maxLifetime` bounds: an hour at least, 30 days at most. */
+export const LIFETIME_BOUNDS = { minSeconds: 60 * 60, maxSeconds: 30 * 24 * 60 * 60 } as const;
+
 export const Limits = z
   .strictObject({
     maxDialAttempts: z.int().min(1).max(20).default(DEFAULT_LIMITS.maxDialAttempts),
     /** Talk plus hold, across every call on the task. */
     maxCallMinutes: z.int().min(1).max(600).default(DEFAULT_LIMITS.maxCallMinutes),
     /** Wall clock from dispatch. */
-    maxLifetime: Duration.default(DEFAULT_LIMITS.maxLifetime),
+    maxLifetime: Duration.refine((d) => {
+      const seconds = durationSeconds(d);
+      return (
+        seconds !== undefined &&
+        seconds >= LIFETIME_BOUNDS.minSeconds &&
+        seconds <= LIFETIME_BOUNDS.maxSeconds
+      );
+    }, "maxLifetime must be between PT1H and P30D").default(DEFAULT_LIMITS.maxLifetime),
   })
   .meta({ id: "Limits" });
 export type Limits = z.infer<typeof Limits>;
@@ -163,7 +180,12 @@ export const BRIEF_REFINEMENTS = [
   "An absolute window must end after it starts, compared as instants.",
   "A recurring window lists each weekday once, has from ≠ to, and between.start ≤ between.end.",
   "When service.practitioner and acceptance.practitioner.mustBe are both set they must name the same person (case, titles and punctuation ignored).",
+  "service.practitioner must not be one of acceptance.practitioner.avoid.",
+  "A practitioner name must still name someone once titles and punctuation are removed.",
+  "limits.maxLifetime is between PT1H and P30D.",
   "cancel.pairedWithBriefId must differ from briefId.",
+  "Every UUID is lowercase, so an id has one spelling.",
+  "A datetime has at most 9 fractional-second digits.",
   "disclosure.allowedFields lists each field once.",
   "Every string is well-formed Unicode (no lone surrogates), so the Brief has a canonical form.",
 ] as const;
@@ -206,6 +228,14 @@ const checkCrossFields = (b: BriefShape, ctx: z.RefinementCtx): void => {
     ctx.addIssue({
       code: "custom",
       message: "service.practitioner and acceptance.practitioner.mustBe disagree (G18)",
+      path: ["service", "practitioner"],
+    });
+  }
+  const avoided = b.verb === "cancel" ? undefined : b.acceptance.practitioner?.avoid;
+  if (typeof asked === "string" && avoided?.some((name) => samePractitioner(name, asked))) {
+    ctx.addIssue({
+      code: "custom",
+      message: "service.practitioner is someone acceptance.practitioner.avoid rules out (G18)",
       path: ["service", "practitioner"],
     });
   }

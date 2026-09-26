@@ -29,6 +29,9 @@ const corePurity = (allowTemporal = false) => ({
         ...(allowTemporal ? [] : [temporalOnlyInTime]),
       ],
       patterns: [
+        ...(allowTemporal
+          ? []
+          : [{ group: ["temporal-polyfill/*"], message: temporalOnlyInTime.message }]),
         {
           group: ["node:*"],
           message: "packages/core has no I/O. Pass data in as arguments.",

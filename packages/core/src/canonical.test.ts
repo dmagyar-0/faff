@@ -153,6 +153,13 @@ describe("revisionHash: golden vectors", () => {
     expect(revisionHash(parsed.value)).toBe(vector.hash);
   });
 
+  it("book-full's canonical form matches an independent JCS (Python), byte for byte", () => {
+    const parsed = parseBrief(bookFull.brief);
+    if (!parsed.ok) throw new Error("book-full must parse");
+    expect(canonicalJson(parsed.value)).toBe(bookFull.canonical);
+    expect(`sha256:${sha256Hex(bookFull.canonical)}`).toBe(bookFull.hash);
+  });
+
   it("key order, number spelling, \\u escapes and omitted defaults don't change the hash", () => {
     expect(
       new Set([bookFull, bookShuffled, bookEscaped, bookDefaultsOmitted].map((v) => v.hash)).size,
@@ -237,6 +244,11 @@ describe("revisionHash: properties", () => {
         expect(revisionHash(shuffleKeys(input, pick) as BriefInput)).toBe(
           revisionHash(input as BriefInput),
         );
+        // zod rebuilds objects in schema order, so also shuffle *after* parsing: that is what
+        // proves canonicalJson sorts, rather than inheriting zod's order.
+        const parsed = parseBrief(input);
+        if (!parsed.ok) throw new Error("filtered");
+        expect(canonicalJson(shuffleKeys(parsed.value, pick))).toBe(canonicalJson(parsed.value));
       }),
     );
   });

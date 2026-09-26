@@ -20,6 +20,8 @@ type Window =
       between: { start: string; end: string } };                           // "weekday mornings until 31 Oct"
 ```
 
+**`between` (G17, M1-Q5):** `start` and `end` are **local dates** (`YYYY-MM-DD`) in the Brief's timezone, and both are **inclusive**: `end: "2026-10-31"` allows a window occurrence that starts on 31 October. `from` and `to` are wall-clock `HH:MM`. Every absolute-window datetime is RFC 3339 with an offset (see [02](02-task-brief.md#shape-rules-m1)).
+
 `evaluateAcceptance(rule, slot, busy[]) → accept | reject(reason) | outside_rule` is a pure function in `core`, with thorough unit tests (DST boundaries, windows crossing midnight, buffers).
 
 **How the agent uses it on a call:**

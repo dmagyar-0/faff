@@ -129,18 +129,32 @@ describe("parseBrief", () => {
       },
     );
 
-    it.each(["P7D", "PT90M", "P1DT12H", "PT30S", "P0D"])("accepts the duration %s", (d) => {
-      expect(parseBrief({ ...bookBrief, limits: { maxLifetime: d } }).ok).toBe(true);
-    });
-
-    it.each(["P", "PT", "P1W", "P1M", "P1Y", "7D", "P1DT", "p7d"])(
-      "rejects the duration %s",
+    it.each(["P7D", "PT90M", "P1DT12H", "PT1H", "P30D", "PT3600S"])(
+      "accepts the lifetime %s",
       (d) => {
-        expect(issuePaths({ ...bookBrief, limits: { maxLifetime: d } })).toContain(
-          "limits.maxLifetime",
-        );
+        expect(parseBrief({ ...bookBrief, limits: { maxLifetime: d } }).ok).toBe(true);
       },
     );
+
+    it.each([
+      "P",
+      "PT",
+      "P1W",
+      "P1M",
+      "P1Y",
+      "7D",
+      "P1DT",
+      "p7d",
+      "P0D",
+      "PT30S",
+      "PT59M59S",
+      "P31D",
+      "P30DT1S",
+    ])("rejects the lifetime %s", (d) => {
+      expect(issuePaths({ ...bookBrief, limits: { maxLifetime: d } })).toContain(
+        "limits.maxLifetime",
+      );
+    });
 
     it("rejects unknown keys anywhere (strict objects)", () => {
       expect(parseBrief({ ...bookBrief, extra: 1 }).ok).toBe(false);
@@ -290,7 +304,7 @@ describe("parseBrief", () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.reason).toBe("invalid_brief");
-    expect(result.detail?.map((i) => i.path).sort()).toEqual(["briefId", "revision"]);
+    expect([...new Set(result.detail?.map((i) => i.path))].sort()).toEqual(["briefId", "revision"]);
   });
 });
 

@@ -40,6 +40,10 @@ const mustFail = {
     "no-restricted-imports",
   ],
   "dynamic import": ["export const m = import('zod');", "no-restricted-syntax"],
+  "temporal-polyfill/global outside time.ts": [
+    "import 'temporal-polyfill/global';\nexport const x = 1;",
+    "no-restricted-imports",
+  ],
   "temporal-polyfill outside time.ts": [
     "import { Temporal } from 'temporal-polyfill';\nexport { Temporal };",
     "no-restricted-imports",

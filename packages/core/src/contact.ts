@@ -13,7 +13,11 @@ export type ContactSource = (typeof CONTACT_SOURCES)[number];
 /** The page a web-found contact was cited from, and the exact text quoted (I-11, Q31). */
 export const Evidence = z
   .strictObject({
-    url: z.url({ protocol: /^https?$/ }).max(2048),
+    url: z
+      .url({ protocol: /^https?$/ })
+      .max(2048)
+      // Repeated as a pattern so the exported JSON Schema carries the http(s) rule too.
+      .regex(/^https?:\/\//i),
     quote: z.string().min(1).max(1000),
     fetchedAt: IsoDateTime,
   })

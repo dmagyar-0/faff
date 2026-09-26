@@ -25,6 +25,11 @@ export const sha256Hex = (text: string): string => bytesToHex(sha256(utf8ToBytes
 /**
  * `"sha256:" + hex(SHA-256(UTF-8(JCS(BriefV1.parse(brief)))))`.
  *
+ * Throwing is deliberate: the hash is computed once, when a revision is created, from a Brief
+ * `parseBrief` has just accepted. Approval compares the stored hash and never recomputes it
+ * (plan §2.2), so a stored revision that a later schema would reject can't turn approval into a
+ * crash.
+ *
  * It hashes the **parsed** Brief, after defaults are applied and refinements checked, so two
  * producers that differ only in omitted defaulted fields get the same hash. An invalid Brief is a
  * programmer error here (parse it first with `parseBrief`), so it throws.
