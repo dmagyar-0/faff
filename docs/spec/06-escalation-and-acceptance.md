@@ -22,11 +22,27 @@ type Window =
 
 **`between` (G17, M1-Q5):** `start` and `end` are **local dates** (`YYYY-MM-DD`) in the Brief's timezone, and both are **inclusive**: `end: "2026-10-31"` allows a window occurrence that starts on 31 October. `from` and `to` are wall-clock `HH:MM`. Every absolute-window datetime is RFC 3339 with an offset (see [02](02-task-brief.md#shape-rules-m1)).
 
-`evaluateAcceptance(rule, slot, busy[]) → accept | reject(reason) | outside_rule` is a pure function in `core`, with thorough unit tests (DST boundaries, windows crossing midnight, buffers).
+`evaluateAcceptance(rule, slot, busy[], ctx) → accept | reject(reason) | outside_rule(reasons[])` is a pure function in `core` (`packages/core/src/acceptance.ts`), with thorough unit tests (DST boundaries, windows crossing midnight, buffers) and property tests. `ctx` carries `now`, the Brief's timezone, the service's duration, the existing appointment for a reschedule, and optionally what the callee was heard to say about the date.
+
+**`reject` vs `outside_rule` (G16, M1-Q4):**
+
+- **`reject`**: the slot isn't a real, evaluable offer: `invalid_slot` (unreadable, no offset, end not after start, or longer than 24 hours), `in_past`, or `inconsistent_date` (the date contradicts what was heard, e.g. "Tuesday the 14th" when the 14th is a Wednesday; `checkHeardDate`). The agent clarifies with the callee. Nothing is recorded as an offer.
+- **`outside_rule`**: a real offer the rule doesn't allow, with every reason: `not_in_window`, `calendar_conflict`, `calendar_unreadable`, `too_soon` (`minNoticeHours`), `practitioner_mismatch`, `practitioner_avoided`, `practitioner_unknown`. The agent records it with `record_offer`, and these become the escalation's `offers`.
+
+**Semantics:**
+
+- **Windows are a union.** The slot must lie inside the union of all window occurrences, so a slot spanning two adjacent windows is accepted. Edges are inclusive: a slot may end exactly when a window ends.
+- **Recurring windows** are wall-clock times in the Brief's timezone. `from > to` crosses midnight and belongs to the day it starts on.
+- **DST.** A window edge that doesn't exist (01:30 on 29 Mar 2026) resolves forward; one that exists twice (01:30 on 25 Oct 2026) resolves to the earlier. Everything is compared as instants, so the same slot written with any offset gets the same answer.
+- **A slot without an end** lasts the service's duration, else 30 minutes.
+- **Calendar.** Only when `avoidCalendarConflicts`. Each busy block is widened by `bufferMinutes` on both sides; a buffer that just touches the slot doesn't clash. For a reschedule, the busy block that exactly matches the existing appointment is ignored (free/busy has no ids). A busy block that can't be read means the slot can't be accepted (`calendar_unreadable`): the rule can't be checked, so code doesn't guess.
+- **Practitioner** names are compared ignoring case, titles and punctuation. When the rule names or avoids a practitioner and the offer doesn't say who, the answer is `practitioner_unknown`, and the agent asks.
+
+**Choosing among accepted slots (M1-Q9): code picks.** `rankByPreference(preference, slots)` orders accepted slots by the user's `preference` (earliest, latest, or closest to a time; ties go to the earlier slot, then the order offered). `propose_slot` returns that ranking (M4), and the agent takes the first. `preference` is the user's decision made in advance, the same argument as I-9.
 
 **How the agent uses it on a call:**
 1. The agent asks for availability in words that match the rule ("anything on weekday mornings before the end of October?").
-2. For each offered slot the agent calls `propose_slot`. On `accept` it takes the slot, following `preference` when several are offered: it asks for all the options first, then chooses.
+2. For each offered slot the agent calls `propose_slot`. On `accept` it takes the slot, following `preference` when several are offered: it asks for all the options first, then takes the one code ranks first.
 3. Slots that don't fit are logged with `record_offer`. The agent may ask once for alternatives inside the rule.
 4. If nothing fits, the agent ends the call politely ("I'll check with David and get back to you") → `outside_rule_offers`.
 

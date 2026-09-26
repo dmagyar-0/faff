@@ -13,6 +13,7 @@ const core = (pct: number) => ({
   statements: pct,
 });
 const CORE_90 = core(90);
+const CORE_95 = core(95);
 
 export default defineConfig({
   test: {
@@ -27,6 +28,9 @@ export default defineConfig({
         "packages/core/src/{acceptance-rule,brief,canonical,contact,observations,outcome}.ts":
           CORE_90,
         "packages/core/src/{practitioner,primitives,result,time}.ts": CORE_90,
+        // M1 PR 1.2: time and acceptance.
+        "packages/core/src/acceptance.ts": CORE_95,
+        "packages/core/src/heard-date.ts": CORE_90,
       },
     },
   },

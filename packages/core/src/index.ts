@@ -11,4 +11,6 @@ export * from "./brief";
 export * from "./outcome";
 export * from "./observations";
 export * from "./canonical";
+export * from "./acceptance";
+export * from "./heard-date";
 export { normalisePractitioner, samePractitioner } from "./practitioner";
