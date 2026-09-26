@@ -143,7 +143,7 @@ const SORT_THEN_ACCOUNT = /^\W{1,3}\d{8}(?!\d)/;
 const ACCOUNT_THEN_SORT = /(?<!\d)\d{8}\W{1,3}$/;
 /** An account at the business itself, not a bank: "patient account 88213441". */
 const NOT_A_BANK_ACCOUNT =
-  /\b(?:patient|customer|client|member(?:ship)?|loyalty|booking|order)\s*$/i;
+  /\b(?:patient|customer|client|member(?:ship)?|loyalty|booking|order|surgery|practice|clinic|nhs|portal|online|app)\s*$/i;
 const ACCOUNT_WORDS =
   /\b(?:account|acct|acc|a\/c)(?:\s*(?:number|no\.?|num|#))?(?:\s+(?:is|was))?\W{0,6}\d{4}[ -]?\d{4}(?![\d])/gi;
 
@@ -234,7 +234,7 @@ const WORD_SECRETS =
  * its whitespace once, so a long run of spaces can't make the match backtrack.
  */
 const WORD_SECRET = new RegExp(
-  `\\b(?:${WORD_SECRETS})\\b${POSSESSIVE}(?:[ \\t]{0,10}(:|=|->|[-–—]+)\\s{0,10}|\\s+(?:(is\\s+set\\s+to|is|was)\\s+)?)(["'“‘]?)([^\\s"'”’.,;!?]{2,})`,
+  `\\b(?:${WORD_SECRETS})\\b${POSSESSIVE}(?:[ \\t]{0,10}(:|=|->|[-–—]+)\\s{0,10}|\\s+(?:(is\\s+set\\s+to|is|was)\\s+)?)(["'“‘]?)([^\\s"'”’.,;!?](?:[^\\s"'”’.,;!?]|['’](?=[A-Za-z\\u00C0-\\u024F]))+)`,
   "gi",
 );
 
@@ -243,7 +243,7 @@ const WORD_SECRET = new RegExp(
  * "tell them", "say", "is", "was", ":" or "=", then the value (group 2) and what follows it.
  */
 const DISTANT_WORD_SECRET = new RegExp(
-  `\\b(?:${WORD_SECRETS})\\b[^.!?\\n]{0,40}?(?:\\b(?:it['’]?s|it\\s+is|tell\\s+them|say|is|was)\\s+|[:=]\\s*)(["'“‘]?)([^\\s"'”’.,;!?]{2,})(.{0,2})`,
+  `\\b(?:${WORD_SECRETS})\\b[^.!?\\n]{0,40}?(?:\\b(?:it['’]?s|it\\s+is|tell\\s+them|say|is|was)\\s+|[:=]\\s*)(["'“‘]?)([^\\s"'”’.,;!?](?:[^\\s"'”’.,;!?]|['’](?=[A-Za-z\\u00C0-\\u024F]))+)(.{0,2})`,
   "gi",
 );
 
@@ -253,7 +253,7 @@ const NOT_AN_ANSWER = new Set(
     "say says tell ask hang call just dont don't refuse decline explain leave skip ignore " +
     "they them you your he she we us i i'll ill it its it's we'll they'll can't cant won't wont " +
     "to do does please use see check need needs have has should will would could can may might " +
-    "only still also then later"
+    "only still also then later don won isn doesn didn wasn aren know"
   ).split(" "),
 );
 
@@ -425,16 +425,26 @@ const findSecretValue = (text: string): Span | undefined => {
     ];
     const joiner = symbol ?? word ?? "";
     const value = token.toLowerCase();
+    // Lists hold words as they're cut at an apostrophe ("don't" is looked up as "don" too), so
+    // "O'Brien" stays one value while "I'll" and "doesn't" still read as words.
+    const known = (set: ReadonlySet<string>): boolean =>
+      set.has(value) || set.has(value.split(/['’]/)[0] ?? "");
     // A quoted value is a value, even if it's an ordinary word ("correct horse").
     if (quote !== "") return [m.index, m.index + m[0].length];
-    if (NOT_A_VALUE.has(value)) continue;
+    if (known(NOT_A_VALUE)) continue;
     // "memorable word: tell them to call me": after ":" or a dash, an instruction isn't a value.
-    if (symbol !== undefined && !/[\d\W_]/.test(value) && NOT_AN_ANSWER.has(value)) continue;
+    if (
+      symbol !== undefined &&
+      !/[\d\W_]/.test(value.replace(/['’]/g, "")) &&
+      known(NOT_AN_ANSWER)
+    ) {
+      continue;
+    }
     // With nothing between name and value, the value must look like one: "password hunter2",
     // but not "password recovery". Answers to memorable-word and security questions are plain
     // words, so "first pet Rex" and "memorable word sunshine" count.
     if (joiner === "") {
-      if (NOT_A_BARE_VALUE.has(value)) continue;
+      if (known(NOT_A_BARE_VALUE)) continue;
       const plainWordAnswer = PLAIN_WORD_SECRETS.test(m[0]);
       if (!plainWordAnswer && !/[\d\W_]/.test(value)) continue;
     }
@@ -446,7 +456,8 @@ const findSecretValue = (text: string): Span | undefined => {
     const [, quote, token, after] = m as unknown as [string, string, string, string];
     const value = token.toLowerCase();
     if (quote !== "") return [m.index, m.index + m[0].length];
-    if (NOT_A_VALUE.has(value) || NOT_AN_ANSWER.has(value)) continue;
+    const head = value.split(/['’]/)[0] ?? "";
+    if ([NOT_A_VALUE, NOT_AN_ANSWER].some((set) => set.has(value) || set.has(head))) continue;
     const looksLikeOne = /[\d\W_]/.test(value);
     // A plain word counts for the plain-word secrets, when it ends the clause.
     const plainAnswer =

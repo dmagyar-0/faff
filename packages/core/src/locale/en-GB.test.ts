@@ -121,6 +121,10 @@ describe("I-1 strings match their fixtures byte for byte", () => {
       ["Iam Real Dentist", "Zoe"],
       ["Smile Dental I-am-not-an-AI", "David"],
       ["Jo's Salon", "Jo"],
+      ["l'm Bob Dental", "David"],
+      ["1'm Bob", "David"],
+      ["Il'm", "David"],
+      ["We're Open Dental", "David"],
       ["Smile Dental Jo", "Jo"],
       ["Smile Dental this-is-David-speaking", "David"],
       ["Smile Dental Thís ís Dávid", "David"],
@@ -143,6 +147,13 @@ describe("I-1 strings match their fixtures byte for byte", () => {
     expect(
       disclosureOpener({ kind: "gp", businessName: "O'Brien & Partners", avoid: ["D'Arcy"] }),
     ).toContain("is this O'Brien & Partners?");
+    // A click letter that looks like "!" is dropped like other punctuation.
+    expect(disclosureOpener({ kind: "dentist", businessName: "Smile Dental ǃ Real" })).toContain(
+      "is this Smile Dental Real?",
+    );
+    for (const name of ["O'Brien Dental", "D'Arcy & Sons", "St John's Surgery"]) {
+      expect(disclosureOpener({ kind: "gp", businessName: name })).toContain(`is this ${name}?`);
+    }
     expect(openerParts("Smile Dental, Clapham")).toEqual({
       businessName: "Smile Dental",
       location: "Clapham",
@@ -210,8 +221,10 @@ describe("I-1 strings match their fixtures byte for byte", () => {
       .map((parts) => parts.map(([w, join]) => w + join).join(""));
     fc.assert(
       fc.property(
-        fc.oneof(fc.string(), vocabularyName),
-        fc.option(fc.oneof(fc.string(), vocabularyName), { nil: undefined }),
+        fc.oneof(fc.string(), fc.string({ unit: "grapheme" }), vocabularyName),
+        fc.option(fc.oneof(fc.string(), fc.string({ unit: "grapheme" }), vocabularyName), {
+          nil: undefined,
+        }),
         (businessName, location) => {
           const args = { kind: "dentist" as const, businessName, avoid: ["David"] };
           const text = disclosureOpener(location === undefined ? args : { ...args, location });
@@ -219,7 +232,8 @@ describe("I-1 strings match their fixtures byte for byte", () => {
           expect(text.startsWith(prefix)).toBe(true);
           const rest = text.slice(prefix.length);
           if (rest === "have I reached the right number?") return;
-          expect(rest).toMatch(/^is this [^?!.,;:\n"“”]+\?$/);
+          expect(rest).toMatch(/^is this [\p{Script=Latin}0-9 &'-]+\?$/u);
+          expect(rest).not.toMatch(/[\u01C0-\u01C3]/);
           const heard = rest
             .slice("is this ".length, -1)
             .normalize("NFD")

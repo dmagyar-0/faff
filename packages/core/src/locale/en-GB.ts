@@ -90,7 +90,13 @@ const CLAUSE_WORDS = new Set(
 /** Apostrophe look-alikes, folded to "'" so "Iʼm" is caught as "I'm". */
 const APOSTROPHES = /[\u02BC\u02BB\u2018\u2019\uFF07\u00B4`]/g;
 /** Latin letters (with accents), digits and the few marks names use. */
-const NAME_CHARS = /[^A-Za-z0-9\u00C0-\u024F &'-]+/g;
+const NAME_CHARS = /(?:[^\p{Script=Latin}0-9 &'-]|[\u01C0-\u01C3])+/gu;
+/**
+ * The only apostrophes a name may have: a possessive at the end ("Jo's", "St John's") or after a
+ * single letter before a capital ("O'Brien", "D'Arcy"). Any other ("I'm", "l'm", "we're") could
+ * be a contraction, whatever letters it's written with, so the name isn't said.
+ */
+const NAME_APOSTROPHE = /^(?:[^']*'s|\p{L}'\p{Lu}[^']*|\p{L}'\p{Lu}[^']*'s)$/u;
 
 /**
  * A name as the fixed opener may say it, or `undefined` if it can't be said safely: Latin
@@ -138,6 +144,7 @@ export const openerName = (name: string, avoid: readonly string[] = []): string 
   ]);
   if (
     kept === "" ||
+    words.some((w) => w.includes("'") && !NAME_APOSTROPHE.test(w)) ||
     kept.length > OPENER_NAME_MAX.chars ||
     words.length > OPENER_NAME_MAX.words ||
     words.some((w) => spokenForms(w).some((f) => banned.has(f) || banned.has(f.replace(/s$/, ""))))
