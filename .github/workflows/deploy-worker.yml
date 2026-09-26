@@ -26,6 +26,7 @@ jobs:
   deploy:
     if: vars.FLY_APP != ''
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment: fly-prod
     env:
       FLY_APP: ${{ vars.FLY_APP }}
@@ -65,7 +66,7 @@ jobs:
           base="https://$FLY_APP.fly.dev"
           for path in healthz readyz; do
             for i in $(seq 1 10); do
-              curl -fsS "$base/$path" && echo && continue 2
+              curl -fsS --max-time 10 "$base/$path" && echo && continue 2
               sleep 3
             done
             echo "::error::$base/$path did not answer 200"

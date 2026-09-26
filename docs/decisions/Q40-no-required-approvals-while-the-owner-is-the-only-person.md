@@ -1,6 +1,6 @@
 # Q40 — No required approvals while the owner is the only person
 
-- **Status:** Accepted. Changes how I-12's "a review is required" is met; I-12 itself is unchanged
+- **Status:** Accepted. Amends I-12's enforcement: its required review becomes a process, not a mechanical gate, until a second person joins
 - **Decided:** 2026-09-26 (owner, during M0 PR 0.3/0.4)
 - **Followed interviewer recommendation:** not asked in the interview
 

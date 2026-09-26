@@ -8,7 +8,7 @@ FROM node:24-slim AS build
 WORKDIR /repo
 RUN corepack enable
 # Manifests first, so the install layer is cached until a dependency changes.
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc tsconfig.base.json ./
 COPY apps/worker/package.json apps/worker/
 COPY packages/core/package.json packages/core/
 COPY packages/db/package.json packages/db/

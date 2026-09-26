@@ -25,8 +25,11 @@ kill_timeout = "15s"
   auto_start_machines = true
   min_machines_running = 1
 
-  # Liveness only. /readyz depends on Supabase, and a database blip shouldn't restart the worker;
-  # the deploy workflow checks /readyz once after each deploy instead.
+  # Routing only: a failing check takes the machine out of Fly's proxy but never restarts it.
+  # Fly restarts a machine only when its process exits, so liveness is the worker's own job
+  # (M4: a watchdog that exits when the event loop stalls while holding leases). /readyz is kept
+  # out so a Supabase blip doesn't pull the only machine out of routing; the deploy workflow
+  # checks /readyz once after each deploy instead.
   [[http_service.checks]]
     method = "GET"
     path = "/healthz"

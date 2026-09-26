@@ -9,9 +9,14 @@ export interface ServerDeps {
 /**
  * The HTTP surface. M0 has only the probes; the tools endpoint and webhooks join in M4.
  *
- * - `/healthz`: the process is up and serving. Fly restarts the machine if it fails.
- * - `/readyz`: the worker can do work, i.e. it can reach Postgres. Not used for restarts: a
- *   database outage shouldn't restart every worker.
+ * - `/healthz`: the process is up and serving. Fly's service check uses it for routing only: a
+ *   failing check takes the machine out of routing but never restarts it.
+ * - `/readyz`: the worker can do work, i.e. it can reach Postgres. Kept out of the service check
+ *   so a database blip doesn't pull the only machine out of routing.
+ *
+ * Liveness is the process's own job: Fly restarts a machine only when its process exits. M4's
+ * runner holds leases, so it needs a watchdog that exits when the event loop stops making
+ * progress (see apps/worker/fly.toml).
  */
 export function buildServer({ pingDatabase, logLevel = "info" }: ServerDeps): FastifyInstance {
   const app = Fastify({
