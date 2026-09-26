@@ -6,7 +6,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["packages/*/src/**", "apps/*/src/**", "evals/src/**"],
-      exclude: ["**/*.test.ts", "**/__selftest__/**"],
+      exclude: ["**/*.test.{ts,tsx}", "**/__selftest__/**"],
       reporter: ["text-summary", "json-summary"],
       // Per-file thresholds arrive with the code they cover (M1 onwards).
     },

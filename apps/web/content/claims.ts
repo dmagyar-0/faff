@@ -2,9 +2,11 @@
 // claims: docs/spec/00-invariants.md). Marketing copy and UI strings that describe Faff's
 // abilities are read from this file, never written inline in a component.
 //
-// CHANGES TO THIS FILE NEED REVIEW. .github/CODEOWNERS names its owner, and branch protection
-// requires a code-owner review, so no PR can change a claim unreviewed. Over-claiming is the
-// failure I-12 exists to prevent: say what Faff cannot do, never promise an outcome.
+// CHANGES TO THIS FILE NEED REVIEW. .github/CODEOWNERS names its owner. While the owner is the
+// only person on the project there are no required approvals (owner, 2026-09-26), so the
+// independent PR review (CLAUDE.md, "Pull requests") must check every change here against I-12,
+// and the owner reads it before merging. Over-claiming is the failure I-12 exists to prevent:
+// say what Faff cannot do, never promise an outcome.
 
 /** The v1 scope, verbatim from docs/spec/README.md. Shown on the M0 placeholder page. */
 export const capabilityLine =

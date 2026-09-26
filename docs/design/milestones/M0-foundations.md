@@ -129,10 +129,10 @@ Four PRs, in order. 0.2 to 0.4 only depend on 0.1 and can be reviewed in paralle
 These create accounts or spend money, so they need the owner's go-ahead. The Supabase and Vercel connectors in this environment can do the first two on request.
 
 - [x] Create **two** Supabase projects in London (`eu-west-2`): `faff-dev` and `faff-prod`. Never reuse `dishton` ([01](../../spec/01-architecture.md#stack-q30)). *Owner, 2026-09-24: one project, treated as prod, in its own org; dev waits until there are users (M0-Q2).*
-- [ ] Create the Vercel project and link it to the repo.
-- [ ] Create the Fly.io app (if P7 is accepted).
+- [x] Create the Vercel project and link it to the repo. *Owner, 2026-09-26: project `faff`, root `apps/web`.*
+- [ ] Create the Fly.io app (if P7 is accepted). *Owner, 2026-09-26: later; `deploy-worker.yml` skips until it exists.*
 - [ ] Add repo secrets: `SUPABASE_ACCESS_TOKEN`, DB passwords and project refs for both projects, `FLY_API_TOKEN`.
-- [ ] Branch protection on `main`: require the CI jobs from 0.1–0.4, require one review.
+- [ ] Branch protection on `main`: require the CI jobs from 0.1–0.4, require one review. *Owner, 2026-09-26: no required reviews or approvals while the owner is the only person on the project. A PR is done when CI is green and an independent review subagent (given only the owner's intent and the diff) has nothing blocking left; see `CLAUDE.md`, "Pull requests". For I-12 that review must check every `claims.ts` change, and CODEOWNERS stays as the record of who owns the file.*
 
 ---
 

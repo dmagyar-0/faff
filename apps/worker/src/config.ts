@@ -9,6 +9,7 @@ const schema = z.object({
   /**
    * Postgres connection string for the worker's server-side role, which bypasses RLS like the
    * service-role key does. Hosted: the Supavisor session-pooler string. Never exposed to web.
+   * M0 uses the `postgres` user; M2 replaces it with a least-privilege worker role.
    */
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
   HOST: z.string().min(1).default("0.0.0.0"),

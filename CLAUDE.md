@@ -59,7 +59,7 @@ Config is parsed with zod at boot (`src/config.ts`); a missing variable stops th
 
 `pnpm --filter @faff/web dev` / `build` run Next.js (App Router) from `apps/web` (env: copy `.env.example` to `.env.local`). Vercel builds it with root directory `apps/web`, functions in `lhr1`, a preview deployment per PR. Previews and production share the one hosted Supabase project for now (M0-Q2).
 
-**Capability claims (I-12):** every user-facing string about what Faff can or can't do lives in `apps/web/content/claims.ts`, never inline in a component. `.github/CODEOWNERS` makes a review required to change it; the rails self-test fails if that entry goes.
+**Capability claims (I-12):** every user-facing string about what Faff can or can't do lives in `apps/web/content/claims.ts`, never inline in a component. `.github/CODEOWNERS` names its owner and the rails self-test fails if that entry goes. With no required approvals (see Pull requests), the independent review must check any change to this file against I-12, and the owner reads it before merging.
 
 ## Layout and the dependency matrix
 
@@ -93,7 +93,7 @@ The owner is the only person on the project: there are no human reviewers and no
 3. **Review.** Then start a review subagent in the same session. Give it only:
    - the owner's intent for the PR: their request, verbatim;
    - the diff: `git diff origin/main...HEAD` (leave out `pnpm-lock.yaml` and other generated files).
-   Give it nothing from the implementation: no reasoning, no PR description, no summary of choices. It may read the repo (spec, plans, this file) to check the diff against them.
+   Give it nothing from the implementation: no reasoning, no PR description, no summary of choices. It may read the repo (spec, plans, this file) to check the diff against them. If the diff touches `apps/web/content/claims.ts`, tell it to check every changed claim against I-12.
 4. **Fix.** For each finding, fix it or say why not. Push, get CI green again, and review again with the new diff. Repeat until the reviewer has nothing blocking.
 5. **Report** to the owner: what was implemented, what the review found and what was fixed, and the proposed next step with a ready-to-paste prompt for it, based on the spec and the milestone plan.
 
