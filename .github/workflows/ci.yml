@@ -80,6 +80,12 @@ jobs:
           -x realtime,storage-api,imgproxy,mailpit,studio,edge-runtime,logflare,vector,supavisor
       - run: pnpm db:reset
       - run: pnpm db:test
+      # The worker's /readyz against a real Postgres. Here rather than in its own job, so CI
+      # starts one Supabase stack, not two.
+      - name: Worker readiness against Postgres
+        run: pnpm --filter @faff/worker test:db
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
       - name: Generated types match the migrations
         run: |
           pnpm db:types
@@ -87,6 +93,24 @@ jobs:
             || { echo "::error::types.gen.ts is stale. Run 'pnpm db:types' and commit it."; exit 1; }
       # Proves the drift check and pgTAP still fail on a table no migration created.
       - run: pnpm db:rails
+
+  # The Next.js production build of apps/web (type errors and prerender failures show up here).
+  build-web:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_TELEMETRY_DISABLED: 1
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: pnpm --filter @faff/web build
+
+  # The worker image: builds, boots, answers /healthz, runs as non-root, drains on SIGTERM.
+  build-worker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: docker build -f apps/worker/Dockerfile -t faff-worker .
+      - run: apps/worker/scripts/smoke-image.sh faff-worker
 
   secrets:
     runs-on: ubuntu-latest

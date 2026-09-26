@@ -68,4 +68,4 @@ Faff never dials a number or emails an address obtained from the web unless the 
 Faff states what it cannot do. It cannot pass identity checks. It will sometimes be refused or hung up on. It cannot guarantee a booking.
 
 - **Why:** DoNotPay's $193k FTC settlement (Jan 2025) was for over-claiming.
-- **Enforced:** onboarding shows the capability statement ([05](05-onboarding-and-profile.md)). Marketing copy and UI strings live in `apps/web/content/claims.ts`, and a review is required to change them.
+- **Enforced:** onboarding shows the capability statement ([05](05-onboarding-and-profile.md)). Marketing copy and UI strings live in `apps/web/content/claims.ts`, and a review is required to change them. While the owner is the only person, that review is the independent PR review described in [Q40](../decisions/Q40-no-required-approvals-while-the-owner-is-the-only-person.md), not a GitHub approval. That is a process, not a code-level gate: the one exception to this file's rule, accepted by the owner until a second person joins.

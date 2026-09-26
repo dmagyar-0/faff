@@ -18,13 +18,13 @@ Node 24 (`.nvmrc`) and pnpm 10 (`packageManager`).
 |---|---|
 | `pnpm install` | Install the workspace |
 | `pnpm check` | Everything CI runs except the secret scan and the database job. Run it before pushing |
-| `pnpm lint` | ESLint, including the `packages/core` purity rules |
+| `pnpm lint` | ESLint (zero warnings), including the `packages/core` purity rules and the Next rules for `apps/web` |
 | `pnpm format` / `pnpm format:check` | Prettier (Markdown is excluded on purpose) |
 | `pnpm typecheck` | `tsc -b` across the project references (typecheck only; nothing is emitted except declarations into `.tsbuild/`) |
 | `pnpm test` / `pnpm test:coverage` | Vitest across every package |
 | `pnpm deps` | dependency-cruiser: the workspace dependency matrix |
 | `pnpm schema:write` / `pnpm schema:check` | Write, or check for drift, `docs/spec/schemas/brief.v1.json` from the zod schema in `packages/core`. Commit the result; CI fails on a diff |
-| `pnpm rails` | Proves the purity lint, the matrix and the schema drift check still catch known violations |
+| `pnpm rails` | Proves the purity lint, the Next lint scope, the matrix, the `claims.ts` CODEOWNERS entry and the schema drift check still catch known violations |
 
 Tests sit next to the code as `*.test.ts`. Import `describe`/`it`/`expect` from `vitest` explicitly; there are no globals.
 
@@ -45,7 +45,24 @@ The Supabase project lives in `packages/db/supabase/`; the CLI is a root devDepe
 - Change the schema only with a new migration file; never edit one that has reached `main`. Then run `pnpm db:reset && pnpm db:test && pnpm db:types`.
 - Never edit `types.gen.ts` by hand.
 - `pgtap` is test-only: tests enable it inside their own rolled-back transaction, never in a migration.
+- `apps/worker/src/*.db.test.ts` need a database too, so `pnpm test` skips them by config and the CI `db` job runs them: `DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres pnpm --filter @faff/worker test:db`.
 - Migrations reach the hosted project (one for now, treated as prod) only through `.github/workflows/migrate.yml`, which runs automatically once CI passes on `main`. So a migration is live as soon as its PR merges: CI green on the PR is the only gate. Don't run `supabase db push` yourself.
+
+### Worker
+
+| Command | What it does |
+|---|---|
+| `pnpm --filter @faff/worker dev` | Run the worker from source with `apps/worker/.env` (copy `.env.example`) |
+| `pnpm --filter @faff/worker build` | esbuild bundle to `apps/worker/dist/main.mjs` |
+| `docker build -f apps/worker/Dockerfile -t faff-worker .` | The image, from the repo root. `apps/worker/scripts/smoke-image.sh faff-worker` is what CI's `build-worker` job runs on it |
+
+Config is parsed with zod at boot (`src/config.ts`); a missing variable stops the process with its name. Anything that holds a resource registers a step in `src/main.ts`'s shutdown list, in the order it must close. The worker deploys to Fly (`apps/worker/fly.toml`) only through the manual `deploy-worker.yml` workflow.
+
+### Web
+
+`pnpm --filter @faff/web dev` / `build` run Next.js (App Router) from `apps/web` (env: copy `.env.example` to `.env.local`). Vercel builds it with root directory `apps/web`, functions in `lhr1`, a preview deployment per PR. Previews and production share the one hosted Supabase project for now (M0-Q2).
+
+**Capability claims (I-12):** every user-facing string about what Faff can or can't do lives in `apps/web/content/claims.ts`, never inline in a component. `.github/CODEOWNERS` names its owner and the rails self-test fails if that entry goes. With no required approvals (see Pull requests), the independent review must check any change to this file against I-12, and the owner reads it before merging.
 
 ## Layout and the dependency matrix
 
@@ -69,6 +86,19 @@ Internal packages export TypeScript source (`"exports": { ".": "./src/index.ts" 
 ## `packages/core` is pure
 
 No network, clock, randomness, environment, console or database. Lint rejects `Date.now()`, `new Date()`, `Math.random()`, `Temporal.Now`, `fetch`, `process`, `crypto`, timers, `node:*` imports and any `@faff/*` import in `packages/core/src` (tests are exempt). Take `now`, IDs and data as arguments. This is what makes the property tests mean something, and what makes I-9's "deterministic, not an LLM judgement" true.
+
+## Pull requests
+
+The owner is the only person on the project: there are no human reviewers and no required approvals ([Q40](docs/decisions/Q40-no-required-approvals-while-the-owner-is-the-only-person.md)). A PR is done when CI is green and an independent review has nothing blocking left.
+
+1. One branch per PR, off the latest `main`. Run `pnpm check` before every push.
+2. **CI.** After opening the PR or pushing to it, watch CI until every job is green, fixing failures as they come. Once it's green, stop: no scheduled check-ins, no further watching.
+3. **Review.** Then start a review subagent in the same session. Give it only:
+   - the owner's intent for the PR: their request, verbatim;
+   - the diff: `git diff origin/main...HEAD` (leave out `pnpm-lock.yaml` and other generated files).
+   Give it nothing from the implementation: no reasoning, no PR description, no summary of choices. It may read the repo (spec, plans, this file) to check the diff against them. If the diff touches `apps/web/content/claims.ts`, tell it to check every changed claim against I-12.
+4. **Fix.** For each finding, fix it or say why not. Push, get CI green again, and review again with the new diff. Repeat until the reviewer has nothing blocking.
+5. **Report** to the owner: what was implemented, what the review found and what was fixed, and the proposed next step with a ready-to-paste prompt for it, based on the spec and the milestone plan.
 
 ## Don't
 

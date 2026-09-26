@@ -20,7 +20,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["packages/*/src/**", "apps/*/src/**", "evals/src/**"],
-      exclude: ["**/*.test.ts", "**/__selftest__/**"],
+      exclude: ["**/*.test.{ts,tsx}", "**/__selftest__/**"],
       reporter: ["text-summary", "json-summary"],
       thresholds: {
         // M1 PR 1.1: schemas and hashing.
