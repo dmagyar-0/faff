@@ -31,6 +31,97 @@ const GENERIC = new Set([
   "group",
 ]);
 
+/**
+ * What a business is, not which one: a name made only of these ("Dental Practice", "the
+ * Pharmacy") could be any of thousands, so it never identifies the business on its own.
+ */
+const CATEGORY = new Set([
+  "dental",
+  "dentist",
+  "dentists",
+  "dentistry",
+  "pharmacy",
+  "chemist",
+  "clinic",
+  "medical",
+  "centre",
+  "center",
+  "health",
+  "healthcare",
+  "care",
+  "family",
+  "opticians",
+  "optician",
+  "optometrists",
+  "eye",
+  "eyecare",
+  "vets",
+  "vet",
+  "veterinary",
+  "physio",
+  "physiotherapy",
+  "hair",
+  "salon",
+  "beauty",
+  "barbers",
+  "garage",
+  "motors",
+  "gp",
+  "doctors",
+  "hospital",
+]);
+
+/**
+ * What a receptionist says that isn't a name ("Good morning", "Yes, speaking", "Reception, how
+ * can I help?"). Dropped from what was heard, so a greeting on its own is `unclear`, never a
+ * `mismatch` that would end the call and mark a good number wrong.
+ */
+const FILLER = new Set([
+  "hello",
+  "hi",
+  "hey",
+  "hiya",
+  "good",
+  "morning",
+  "afternoon",
+  "evening",
+  "yes",
+  "yeah",
+  "yep",
+  "speaking",
+  "reception",
+  "how",
+  "can",
+  "may",
+  "i",
+  "help",
+  "you",
+  "this",
+  "is",
+  "it",
+  "its",
+  "sorry",
+  "pardon",
+  "what",
+  "who",
+  "thank",
+  "thanks",
+  "calling",
+  "here",
+  "hold",
+  "please",
+  "one",
+  "moment",
+  "sure",
+  "ok",
+  "okay",
+  "well",
+  "um",
+  "uh",
+  "er",
+  "erm",
+]);
+
 export type IdentityVerdict = "match" | "mismatch" | "unclear";
 
 const tokens = (text: string): string[] =>
@@ -83,20 +174,27 @@ export const sameWord = (heard: string, word: string): boolean => {
  * - some of the words: `unclear`; none: `mismatch`.
  */
 export const compareNames = (heard: string, name: string): IdentityVerdict => {
-  const h = tokens(heard);
+  const h = tokens(heard).filter((w) => !FILLER.has(w));
   const n = tokens(name);
-  if (h.length === 0 || n.length === 0) return "unclear";
+  // Nothing but a greeting heard, or a name of category words only: ask, don't decide.
+  if (h.length === 0 || n.every((w) => CATEGORY.has(w))) return "unclear";
   const used = new Set<number>();
   let matched = 0;
+  // A one-word slip ("Kensington" for "Kennington") could be a different business: it can make
+  // the answer unclear, never a match. Heard words run together are how speech recognition breaks
+  // a word, so a slip there still counts.
+  let slipped = false;
   for (const word of n) {
     let found = false;
     for (let i = 0; i < h.length && !found; i++) {
       for (let len = 1; len <= 3 && i + len <= h.length && !found; len++) {
         const indices = Array.from({ length: len }, (_, k) => i + k);
         if (indices.some((k) => used.has(k))) continue;
-        if (sameWord(indices.map((k) => h[k]).join(""), word)) {
+        const joined = indices.map((k) => h[k]).join("");
+        if (sameWord(joined, word)) {
           indices.forEach((k) => used.add(k));
           found = true;
+          if (len === 1 && joined !== word) slipped = true;
         }
       }
     }
@@ -104,7 +202,7 @@ export const compareNames = (heard: string, name: string): IdentityVerdict => {
   }
   if (matched === 0) return "mismatch";
   if (matched < n.length) return "unclear";
-  return used.size === h.length ? "match" : "unclear";
+  return used.size === h.length && !slipped ? "match" : "unclear";
 };
 
 const RANK: Readonly<Record<IdentityVerdict, number>> = { mismatch: 0, unclear: 1, match: 2 };
@@ -121,10 +219,15 @@ const candidateNames = (
   aliases: readonly string[],
 ): string[] => {
   const beforeComma = business.displayName.split(",", 1).join("");
-  const place = new Set(tokens(business.location ?? ""));
-  const withoutPlace = tokens(business.displayName)
-    .filter((w) => !place.has(w))
-    .join(" ");
+  // The location's words come off the end only ("Smile Dental Clapham"), never the front, where
+  // they are part of the name ("Clapham Dental").
+  const place = tokens(business.location ?? "");
+  const words = tokens(business.displayName);
+  const tail = words.slice(-place.length);
+  const withoutPlace =
+    place.length > 0 && tail.join(" ") === place.join(" ")
+      ? words.slice(0, -place.length).join(" ")
+      : business.displayName;
   return [business.displayName, beforeComma, withoutPlace, ...aliases].filter(
     (n) => tokens(n).length > 0,
   );
@@ -133,7 +236,7 @@ const candidateNames = (
 /**
  * Compare what the callee said with the business's display name and every alias, and take the
  * best verdict. When the callee also gave a location and the business has one, the location must
- * match too; a clearly different one ("Brixton") is a mismatch, a partial one unclear.
+ * match too; one that doesn't is unclear, so the agent asks once.
  *
  * Nothing identifiable heard ("hello?"), or nothing to compare with, is `unclear`: ask once,
  * don't decide.
@@ -150,5 +253,7 @@ export const matchBusinessIdentity = (
     return name;
   }
   if (tokens(heard.location).length === 0) return name;
-  return compareNames(heard.location, business.location);
+  // The name matched: a location that doesn't is worth one question before ending the call.
+  const place = compareNames(heard.location, business.location);
+  return place === "mismatch" ? "unclear" : place;
 };

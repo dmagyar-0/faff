@@ -68,38 +68,33 @@ const occurrencesOf = (haystack: string, needle: string): Occurrence[] => {
 const inside = (start: number, end: number, spans: readonly Occurrence[]): boolean =>
   spans.some(([s, e]) => s <= start && end <= e);
 
-/** The ways the page might write `phone`'s digits: +44…, 0044…, 0…, and +44 (0)…. */
-const digitSpellings = (phone: E164): Set<string> => {
-  const intl = phone.slice(1);
-  const out = new Set([intl, `00${intl}`]);
-  if (intl.startsWith("44")) {
-    out.add(`0${intl.slice(2)}`);
-    out.add(`440${intl.slice(2)}`);
-    out.add(`00440${intl.slice(2)}`);
-  }
-  return out;
-};
-
 /**
- * Whether `phone` is written on the page, inside the quote, as a whole: some span of whole digit
- * groups of a digit run lying inside an occurrence of the quote spells it. Whole groups mean a
- * number can't be cut out of a longer one ("020 7946 00001234" doesn't contain 020 7946 0000).
+ * Whether `phone` is written on the page, inside the quote, as a whole: the text of some span of
+ * whole digit groups (with a "+" written just before it) normalises to exactly `phone`. The text
+ * must say the whole number, so "+44 20 7946 0000" can't vouch for "+2079460000" (a span that
+ * drops the country code has no "+" and no leading 0), and whole groups mean a number can't be
+ * cut out of the middle of one ("020 7946 00001234" doesn't contain 020 7946 0000). A number
+ * followed by an extension written as its own group ("020 7946 0000 1234") does count.
  */
 const phoneOnPage = (phone: E164, page: string, quotes: readonly Occurrence[]): boolean => {
-  const spellings = digitSpellings(phone);
   for (const m of page.matchAll(DIGIT_RUN)) {
     const groups = [...m[0].matchAll(/\d+/g)].map((g) => ({
-      digits: g[0],
       start: m.index + g.index,
       end: m.index + g.index + g[0].length,
+      length: g[0].length,
     }));
     for (let i = 0; i < groups.length; i++) {
-      let digits = "";
-      for (let j = i; j < groups.length; j++) {
+      const first = groups[i] as (typeof groups)[number];
+      const start = page[first.start - 1] === "+" ? first.start - 1 : first.start;
+      let digits = 0;
+      // No phone number, in any spelling, has more than 19 digits: stop there, so a long run of
+      // digits costs linear time.
+      for (let j = i; j < groups.length && digits <= 19; j++) {
         const g = groups[j] as (typeof groups)[number];
-        digits += g.digits;
-        const start = (groups[i] as (typeof groups)[number]).start;
-        if (spellings.has(digits) && inside(start, g.end, quotes)) return true;
+        digits += g.length;
+        if (normalisePhone(page.slice(start, g.end)) === phone && inside(start, g.end, quotes)) {
+          return true;
+        }
       }
     }
   }
@@ -114,7 +109,11 @@ const emailOnPage = (email: string, page: string, quotes: readonly Occurrence[])
   [...page.matchAll(EMAIL_RUN)].some((m) => {
     const before = page[m.index - 1] ?? " ";
     const after = page[m.index + m[0].length] ?? " ";
-    const whole = !/[A-Za-z0-9._%+-]/.test(before) && !/[A-Za-z0-9.-]/.test(after);
+    // A "." or "-" after it only continues the address if more of an address follows:
+    // "Email bookings@smile.example." ends a sentence.
+    const next = page[m.index + m[0].length + 1] ?? " ";
+    const continues = /[A-Za-z0-9]/.test(after) || (/[.-]/.test(after) && /[A-Za-z0-9]/.test(next));
+    const whole = !/[A-Za-z0-9._%+-]/.test(before) && !continues;
     return whole && sameEmail(m[0], email) && inside(m.index, m.index + m[0].length, quotes);
   });
 
@@ -206,8 +205,11 @@ export const hostOf = (url: string): string | undefined => {
 
 /** "https://www.Smile.example/contact", "www.smile.example" or "smile.example" → "smile.example". */
 export const domainOf = (site: string): string | undefined => {
-  const host = /^https?:\/\//i.test(site) ? hostOf(site) : hostOf(`https://${site}`);
-  return host?.replace(/^www\./, "");
+  const url = /^https?:\/\//i.test(site) ? site : `https://${site}`;
+  // A site with a path ("facebook.com/smiledental") isn't a domain the business owns: counting it
+  // would make the whole host first-party.
+  if (/^https?:\/\/[^/?#]*[/?#]./i.test(url)) return undefined;
+  return hostOf(url)?.replace(/^www\./, "");
 };
 
 const onDomain = (host: string, domain: string): boolean =>
@@ -215,8 +217,8 @@ const onDomain = (host: string, domain: string): boolean =>
 
 /**
  * Q39 condition 2: the evidence URL is on the business's own domain (`businesses.website`, G20)
- * or a directory the locale trusts (the NHS service directory in en-GB). Third-party directories
- * don't count.
+ * or on a directory host the locale trusts, matched exactly (the NHS service directory,
+ * `www.nhs.uk`, in en-GB). Third-party directories don't count.
  */
 export const isFirstPartySource = (
   url: string,
@@ -227,5 +229,7 @@ export const isFirstPartySource = (
   if (host === undefined) return false;
   const own = businessWebsite === undefined ? undefined : domainOf(businessWebsite);
   if (own !== undefined && onDomain(host, own)) return true;
-  return trustedDirectories.some((d) => onDomain(host, d.toLowerCase()));
+  // Directories are exact hosts (www.nhs.uk): other nhs.uk subdomains are practices and trusts,
+  // whose pages can list several businesses.
+  return trustedDirectories.some((d) => host === d.toLowerCase());
 };

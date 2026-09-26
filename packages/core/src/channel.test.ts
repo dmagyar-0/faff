@@ -52,6 +52,14 @@ describe("resolveChannel: spec 07 rules 1–4, in order", () => {
     );
   });
 
+  it("2 comes before 3: an observed preference is the reason even with no phone known", () => {
+    const prefers = [obs(1, "prefers_email", {}, "2026-10-01T10:00:00Z")];
+    expect(resolve({ observations: prefers, knownContacts: { email: both.email } })).toEqual({
+      chosen: "email",
+      reason: "prefers_email_observed",
+    });
+  });
+
   it("3. no phone known but an email is", () => {
     expect(resolve({ observations: [], knownContacts: { email: both.email } })).toEqual({
       chosen: "email",
@@ -121,6 +129,8 @@ describe("observedPrefersEmail", () => {
       obs(1, "prefers_email", {}, "2026-09-20T09:00:00Z"),
     ];
     expect(observedPrefersEmail(tie, NOW, TZ, [])).toBe(false);
+    // Either input order: the id decides, not the position.
+    expect(observedPrefersEmail([...tie].reverse(), NOW, TZ, [])).toBe(false);
     // Unrelated kinds don't count.
     expect(
       observedPrefersEmail([obs(1, "refused_ai", {}, "2026-10-01T09:00:00Z")], NOW, TZ, []),

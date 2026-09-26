@@ -151,6 +151,46 @@ describe("citationHolds (I-11)", () => {
     });
   });
 
+  it("a span that drops the start of the number can't vouch for what's left (review, PR 1.5)", () => {
+    const cases: [string, string][] = [
+      ["+2079460000", "Call +44 20 7946 0000"],
+      ["+79460000", "Tel 020 7946 0000"],
+      ["+442079460000", "+1 442 079 460 000"],
+      ["+442079460000", "Ref 442079460000"],
+    ];
+    for (const [phone, page] of cases) {
+      expect(citationHolds({ phone }, page, page), `${phone} in ${page}`).toEqual({
+        ok: false,
+        reason: "value_not_in_quote",
+      });
+    }
+  });
+
+  it("an extension written as its own group doesn't stop the number counting", () => {
+    const page = "Tel 020 7946 0000 1234";
+    expect(citationHolds({ phone: "+442079460000" }, page, page).ok).toBe(true);
+  });
+
+  it("an email must sit inside the quote, not just somewhere on the page", () => {
+    const page = "Email bookings@smile.example or info@smile.example";
+    expect(
+      citationHolds({ email: "info@smile.example" }, "Email bookings@smile.example", page),
+    ).toEqual({
+      ok: false,
+      reason: "value_not_in_quote",
+    });
+  });
+
+  it("an email may end a sentence, but not be the start of a longer address", () => {
+    const page = "Email bookings@smile.example. Or x@smile.example-2.org";
+    expect(
+      citationHolds({ email: "bookings@smile.example" }, "Email bookings@smile.example.", page).ok,
+    ).toBe(true);
+    expect(citationHolds({ email: "x@smile.example" }, "Or x@smile.example-2.org", page).ok).toBe(
+      false,
+    );
+  });
+
   it("finds the number when other digits sit beside it in the same run", () => {
     const page = "Mon-Fri 9-5 020 7946 0000 / 020 7946 1111";
     expect(citationHolds({ phone: "+442079460000" }, "9-5 020 7946 0000", page).ok).toBe(true);
@@ -245,14 +285,14 @@ describe("pageNamesBusiness (Q39 condition 4)", () => {
 });
 
 describe("isFirstPartySource (Q39 condition 2)", () => {
-  const nhs = ["nhs.uk"];
+  const nhs = ["www.nhs.uk"];
 
   it.each([
     ["https://smiledental.example/contact", "smiledental.example"],
     ["https://www.smiledental.example/contact", "https://smiledental.example"],
     ["https://bookings.smiledental.example", "www.smiledental.example"],
     ["https://www.nhs.uk/services/dentist/smile-dental/X1", undefined],
-    ["http://NHS.UK./x", undefined],
+    ["http://WWW.NHS.UK./x", undefined],
   ])("%s is first-party (site %s)", (url, site) => {
     expect(isFirstPartySource(url, site, nhs)).toBe(true);
   });
@@ -262,6 +302,9 @@ describe("isFirstPartySource (Q39 condition 2)", () => {
     ["https://smiledental.example.evil.example/", "smiledental.example"],
     ["https://notsmiledental.example/", "smiledental.example"],
     ["https://nhs.uk.evil.example/", undefined],
+    ["https://othersurgery.nhs.uk/contact", undefined],
+    ["https://nhs.uk/services/x", undefined],
+    ["https://facebook.com/smiledental/about", "facebook.com/smiledental"],
     ["https://nhs.uk@evil.example/", undefined],
     ["https://evil.example\\@smiledental.example/", "smiledental.example"],
     ["https://evil.example\\@www.nhs.uk/x", undefined],
@@ -277,7 +320,9 @@ describe("isFirstPartySource (Q39 condition 2)", () => {
     expect(hostOf("https://Example.COM:8443/a?b#c")).toBe("example.com");
     expect(hostOf("https://user:pw@example.com/")).toBeUndefined();
     expect(hostOf("https://")).toBeUndefined();
-    expect(domainOf("www.Smile.example/path")).toBe("smile.example");
+    expect(domainOf("www.Smile.example")).toBe("smile.example");
+    expect(domainOf("www.Smile.example/")).toBe("smile.example");
+    expect(domainOf("facebook.com/smiledental")).toBeUndefined();
     expect(domainOf("https://www.smile.example")).toBe("smile.example");
   });
 });

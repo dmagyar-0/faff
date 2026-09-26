@@ -39,7 +39,7 @@ const input = (overrides: Partial<ContactSwitchInput> = {}): ContactSwitchInput 
     website: "https://smiledental.example",
   },
   evidencePageText: PAGE,
-  trustedDirectories: ["nhs.uk"],
+  trustedDirectories: ["www.nhs.uk"],
   dialAllowed: true,
   ...overrides,
 });
@@ -211,7 +211,6 @@ describe("mayAutoSwitchContact: each failure has its own reason, checked in spec
         {},
         ...breaks.slice(k).map(([, o]) => o),
       ) as Partial<ContactSwitchInput>;
-      // The citation break replaces the page, which would also hide the name: keep it apart.
       expect(mayAutoSwitchContact(input(combined)), breaks[k]?.[0]).toEqual({
         ok: false,
         reason: breaks[k]?.[0],
