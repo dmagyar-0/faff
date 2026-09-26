@@ -26,7 +26,7 @@ type ResolvedContact = {
 
 1. **Search:** a web search for the business name plus location, restricted to the top N results. The business's own site and the NHS service directory (for GPs and dentists) rank first.
 2. **Extract:** an LLM reads the fetched pages and returns candidates, each shaped `{ phone|email, url, quote }`, where `quote` must be copied exactly from the page.
-3. **Verify, deterministically, with no LLM:** `verifyCitation(candidate)` re-fetches `url`, normalises whitespace and phone formatting (`+44 20…` ≡ `020…`), and checks that the candidate value appears **inside** `quote` and that `quote` appears on the page. A candidate that fails either check is discarded. Candidates that pass are written as `web_extract` observations with `evidence_quote`.
+3. **Verify, deterministically, with no LLM:** `verifyCitation(candidate)` re-fetches `url`, normalises whitespace and phone formatting (`+44 20…` ≡ `020…`), and checks that the candidate value appears **inside** `quote` and that `quote` appears on the page. The value must be written whole: a whole email address, or whole digit groups whose text (with any `+` before them) reads as exactly that number, so a quote can't vouch for part of a longer address or number (`citationHolds` in `packages/core/src/citation.ts`). A candidate that fails either check is discarded. Candidates that pass are written as `web_extract` observations with `evidence_quote`.
 4. **Choose:** prefer the business's own domain over directories, and a bookings or appointments line over a general number.
 
 **No separate user confirmation (Q31).** The chosen contact and its evidence are shown on the Brief card, so approval is informed. Nothing blocks on it. The risk this accepts, an out-of-date but correctly cited number, is covered by the identity check below.
@@ -39,7 +39,7 @@ type ResolvedContact = {
    > "Hi, I'm an AI assistant calling on behalf of a patient — is this Smile Dental in Clapham?"
 
    (The noun varies by business type: patient, customer, client.)
-2. The agent calls `confirm_business_identity(heard_name, heard_location)`.
+2. The agent calls `confirm_business_identity(heard_name, heard_location)`, which runs `matchBusinessIdentity` in `core` (G9). It compares words, after case-folding and removing generic ones ("the", "practice", "surgery", "ltd"…) and, from what was heard, greetings ("good morning", "yes, speaking", "reception"), with the display name, the part before its comma, the name without a trailing location, and each alias. Every word of the name must be heard, exactly or as heard words run together ("smile dent all" is Smile Dental). All heard and nothing else distinctive is a match. It is unclear when: a word was heard with a one-letter slip ("Kensington" for "Kennington"); an extra distinctive word was heard ("Smile Dental Balham"); only some of the words were heard; the name is only category words ("Dental Practice"); or nothing but a greeting was heard. None of the words is a mismatch. A heard location that doesn't match makes it unclear. It errs towards unclear, which costs one question, because a match lets `reveal_profile_field` release the user's details, and a mismatch ends the call and marks the number wrong. The tolerance is provisional until the M6 noise scenarios tune it.
    - **Match:** `identity_confirmed = true`. The agent then names the user ("I'm calling for David Example…") and continues.
    - **Mismatch / unclear after one clarification:** the agent apologises and ends the call ("Sorry, wrong number — have a good day"). A `number_wrong` observation is logged, and the cached profile for that business is invalidated. Resolution re-runs, excluding that number. This counts as an attempt. Whether Faff dials the new number without asking is decided by the deterministic check in [After a wrong number](#after-a-wrong-number) (Q39).
 3. Until the identity is confirmed, `reveal_profile_field` refuses every field, **including `full_name`**.
@@ -50,14 +50,16 @@ type ResolvedContact = {
 
 ## After a wrong number
 
-**(Q39)** `mayAutoSwitchContact(task, brief, newContact, observations) → ok | reason` is a pure function in `core`. Faff dials the new contact without a new approval only if every condition holds:
+**(Q39)** `mayAutoSwitchContact({ brief, autoSwitchesSoFar, newContact, failedPhone, observations, business, evidencePageText, trustedDirectories, dialAllowed }) → ok(phone) | reason` is a pure function in `core`. Before the conditions it checks that the new contact has a phone number (`no_new_number`) that isn't the one that failed (`same_number`). Faff dials the new contact without a new approval only if every condition holds:
 
 1. `brief.business.contactPolicy.autoSwitchOnWrongNumber` is true.
-2. The source is `user_memory`, **or** `web_extract` whose evidence URL is on the business's own domain or the NHS service directory (not a third-party directory).
+2. The source is `user_memory`, **or** `web_extract` whose evidence URL is on the business's own domain (`businesses.website`, G20) or the NHS service directory (exactly `www.nhs.uk`: other nhs.uk hosts belong to practices and trusts; not a third-party directory), and whose citation still holds on the re-fetched page.
 3. The value has no `number_wrong` observation for this business.
 4. The evidence page names the business's display name and matches its postcode or address.
 5. The task hasn't switched contact automatically before (at most one switch per task).
 6. `limits` still allow a dial (I-8).
+
+The check is `mayAutoSwitchContact` in `packages/core/src/contact-switch.ts`. Each failed condition has its own reason code (`auto_switch_disabled`, `no_new_number`, `same_number`, `source_not_trusted`, `citation_failed`, `known_wrong_number`, `page_does_not_name_business`, `already_switched`, `limits_exhausted`), so the escalation can say which one failed. Condition 6 takes the limits verdict as an input, so the guard and the dialler can't disagree.
 
 On success the worker records a `contact_switched` task event with the new `ResolvedContact` and its evidence, and dials that contact from then on. The Brief revision is never edited. The report shows the switch. On any failure the task escalates with `wrong_business_unresolved` and a suggested action to approve the new number. The identity check above still runs on the new call, so disclosure stays protected (I-7).
 
