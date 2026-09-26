@@ -132,7 +132,7 @@ These create accounts or spend money, so they need the owner's go-ahead. The Sup
 - [x] Create the Vercel project and link it to the repo. *Owner, 2026-09-26: project `faff`, root `apps/web`.*
 - [ ] Create the Fly.io app (if P7 is accepted). *Owner, 2026-09-26: later; `deploy-worker.yml` skips until it exists.*
 - [ ] Add repo secrets: `SUPABASE_ACCESS_TOKEN`, DB passwords and project refs for both projects, `FLY_API_TOKEN`.
-- [ ] Branch protection on `main`: require the CI jobs from 0.1–0.4, require one review. *Owner, 2026-09-26: no required reviews or approvals while the owner is the only person on the project. A PR is done when CI is green and an independent review subagent (given only the owner's intent and the diff) has nothing blocking left; see `CLAUDE.md`, "Pull requests". For I-12 that review must check every `claims.ts` change, and CODEOWNERS stays as the record of who owns the file.*
+- [ ] Branch protection on `main`: require the CI jobs from 0.1–0.4, require one review. *Owner, 2026-09-26: no required reviews or approvals while the owner is the only person on the project. A PR is done when CI is green and an independent review subagent (given only the owner's intent and the diff) has nothing blocking left; see `CLAUDE.md`, "Pull requests", and [Q40](../../decisions/Q40-no-required-approvals-while-the-owner-is-the-only-person.md). For I-12 that review must check every `claims.ts` change, and CODEOWNERS stays as the record of who owns the file.*
 
 ---
 

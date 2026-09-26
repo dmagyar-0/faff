@@ -1,4 +1,5 @@
-# Branch protection on main requires a review from a code owner for these paths.
+# Owners on record for these paths. While the owner is the only person there are no required
+# approvals (docs/decisions/Q40): the independent PR review in CLAUDE.md checks these paths.
 
 # I-12: every user-facing capability claim lives in this file, and a review is required to
 # change it (docs/spec/00-invariants.md).

@@ -86,7 +86,7 @@ No network, clock, randomness, environment, console or database. Lint rejects `D
 
 ## Pull requests
 
-The owner is the only person on the project: there are no human reviewers and no required approvals. A PR is done when CI is green and an independent review has nothing blocking left. (Owner, 2026-09-26.)
+The owner is the only person on the project: there are no human reviewers and no required approvals ([Q40](docs/decisions/Q40-no-required-approvals-while-the-owner-is-the-only-person.md)). A PR is done when CI is green and an independent review has nothing blocking left.
 
 1. One branch per PR, off the latest `main`. Run `pnpm check` before every push.
 2. **CI.** After opening the PR or pushing to it, watch CI until every job is green, fixing failures as they come. Once it's green, stop: no scheduled check-ins, no further watching.

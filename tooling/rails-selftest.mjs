@@ -61,6 +61,16 @@ for (const [label, code] of Object.entries(mustPass)) {
   }
 }
 
+// The purity rules cover every TypeScript extension, not just .ts.
+for (const ext of ["tsx", "mts", "cts"]) {
+  const [result] = await eslint.lintText("export const t = Date.now();", {
+    filePath: path.join(root, `packages/core/src/__selftest__.${ext}`),
+  });
+  if (!result.messages.some((m) => m.ruleId === "no-restricted-properties")) {
+    failures.push(`core purity: Date.now() in a .${ext} file was not reported`);
+  }
+}
+
 // Tests in core are exempt: they may use the clock and vitest.
 {
   const [result] = await eslint.lintText("export const t = Date.now();", {
@@ -209,7 +219,7 @@ if (failures.length > 0) {
   for (const f of failures) console.error(`  ✗ ${f}`);
   process.exit(1);
 }
-const count = Object.keys(mustFail).length + Object.keys(mustPass).length + 1;
+const count = Object.keys(mustFail).length + Object.keys(mustPass).length + 4;
 console.log(
   `Rails self-test passed: ${count} purity-lint cases, 2 Next lint cases, ` +
     `${Object.keys(fixtures).length} dependency cases, ${guarded.length + ownerRemovals.length + 3} CODEOWNERS cases.`,

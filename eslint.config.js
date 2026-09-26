@@ -92,8 +92,8 @@ export default defineConfig(
     languageOptions: { globals: globals.node },
   },
   {
-    files: ["packages/core/src/**/*.ts"],
-    ignores: ["**/*.test.ts"],
+    files: ["packages/core/src/**/*.{ts,tsx,mts,cts}"],
+    ignores: ["**/*.test.{ts,tsx,mts,cts}"],
     rules: corePurity,
   },
   // Next.js rules, for apps/web only (M0 plan §2).
