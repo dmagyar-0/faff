@@ -1,0 +1,42 @@
+# Fly.io config for the worker (P7: Fly, London). Deployed only by .github/workflows/deploy-worker.yml,
+# from the repo root: flyctl deploy . --config apps/worker/fly.toml --dockerfile apps/worker/Dockerfile
+#
+# `app` is overridden by the FLY_APP repo variable at deploy time (Fly app names are global, so
+# the real name may differ). Secrets (DATABASE_URL) are set with `fly secrets set`, never here.
+
+app = "faff-worker"
+primary_region = "lhr"
+
+# Node handles SIGTERM (src/shutdown.ts). Fly's default is SIGINT with a 5s grace; give the
+# drain its full SHUTDOWN_TIMEOUT_MS (10s) plus headroom.
+kill_signal = "SIGTERM"
+kill_timeout = "15s"
+
+[env]
+  PORT = "8080"
+  LOG_LEVEL = "info"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # From M4 the runner holds leases and waits on holds and email; it must not be stopped for
+  # being idle. One machine, always on.
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  # Liveness only. /readyz depends on Supabase, and a database blip shouldn't restart the worker;
+  # the deploy workflow checks /readyz once after each deploy instead.
+  [[http_service.checks]]
+    method = "GET"
+    path = "/healthz"
+    interval = "15s"
+    timeout = "2s"
+    grace_period = "10s"
+
+[deploy]
+  strategy = "rolling"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

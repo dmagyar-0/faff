@@ -7,13 +7,26 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "scripts": {
+    "build": "node build.mjs",
+    "start": "node --enable-source-maps dist/main.mjs",
+    "dev": "node --env-file=.env --watch src/main.ts",
+    "test:db": "vitest run --config vitest.db.config.ts"
+  },
   "dependencies": {
+    "@faff/agents": "workspace:*",
     "@faff/core": "workspace:*",
     "@faff/db": "workspace:*",
-    "@faff/tools": "workspace:*",
-    "@faff/agents": "workspace:*",
-    "@faff/telephony": "workspace:*",
     "@faff/email": "workspace:*",
-    "@faff/sim": "workspace:*"
+    "@faff/sim": "workspace:*",
+    "@faff/telephony": "workspace:*",
+    "@faff/tools": "workspace:*",
+    "fastify": "5.12.5",
+    "pg": "8.23.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1",
+    "esbuild": "0.28.2"
   }
 }

@@ -99,6 +99,16 @@ const fixtures = {
     "export { packageName } from '@faff/db';\n",
     "not-to-unresolvable",
   ],
+  // apps/web may import core, db and agents only: never the tool server (spec 01, D3).
+  "apps/web/src/__selftest__/tools.ts": [
+    "export { packageName } from '../../../../packages/tools/src/index';\n",
+    "matrix:apps/web",
+  ],
+  // The worker may import every package, but never the web app.
+  "apps/worker/src/__selftest__/web.ts": [
+    "export { packageName } from '../../../web/src/index';\n",
+    "matrix:apps/worker",
+  ],
   "packages/core/src/__selftest__/sibling.ts": [
     "export { packageName } from '../../../sim/src/index';\n",
     "matrix:packages/core",

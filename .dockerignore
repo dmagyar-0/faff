@@ -1,0 +1,11 @@
+# Keep the build context small and free of secrets. Only apps/worker/Dockerfile uses it today.
+**/node_modules
+**/.tsbuild
+**/dist
+**/coverage
+**/.next
+**/.env
+**/.env.*
+!**/.env.example
+.git
+docs

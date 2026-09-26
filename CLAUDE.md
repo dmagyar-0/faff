@@ -42,7 +42,18 @@ The Supabase project lives in `packages/db/supabase/`; the CLI is a root devDepe
 - Change the schema only with a new migration file; never edit one that has reached `main`. Then run `pnpm db:reset && pnpm db:test && pnpm db:types`.
 - Never edit `types.gen.ts` by hand.
 - `pgtap` is test-only: tests enable it inside their own rolled-back transaction, never in a migration.
+- `apps/worker/src/*.db.test.ts` need a database too, so `pnpm test` skips them by config and the CI `db` job runs them: `DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres pnpm --filter @faff/worker test:db`.
 - Migrations reach the hosted project (one for now, treated as prod) only through `.github/workflows/migrate.yml`, which runs automatically once CI passes on `main`. So a migration is live as soon as its PR merges: CI green on the PR is the only gate. Don't run `supabase db push` yourself.
+
+### Worker
+
+| Command | What it does |
+|---|---|
+| `pnpm --filter @faff/worker dev` | Run the worker from source with `apps/worker/.env` (copy `.env.example`) |
+| `pnpm --filter @faff/worker build` | esbuild bundle to `apps/worker/dist/main.mjs` |
+| `docker build -f apps/worker/Dockerfile -t faff-worker .` | The image, from the repo root. `apps/worker/scripts/smoke-image.sh faff-worker` is what CI's `build-worker` job runs on it |
+
+Config is parsed with zod at boot (`src/config.ts`); a missing variable stops the process with its name. Anything that holds a resource registers a step in `src/main.ts`'s shutdown list, in the order it must close. The worker deploys to Fly (`apps/worker/fly.toml`) only through the manual `deploy-worker.yml` workflow.
 
 ### Web
 
