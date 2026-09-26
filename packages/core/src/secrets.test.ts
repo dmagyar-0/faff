@@ -46,6 +46,8 @@ const POSITIVE: readonly (readonly [string, SecretKind])[] = [
   ["pay to DE89 3704 0044 0532 0130 00", "bank_details"],
   // A secret's name with its value.
   ["my PIN is 4471", "secret_value"],
+  ["PIN:\n4471", "secret_value"],
+  ["PIN is\n4471", "secret_value"],
   ["PIN: 4471", "secret_value"],
   ["pin number 1234", "secret_value"],
   ["Pin code = 9876", "secret_value"],
@@ -236,15 +238,28 @@ describe("rejectSecrets", () => {
 
   it("stays fast on long runs of digits and spaces (no blow-up)", () => {
     for (const text of [
-      "12-34-56 ".repeat(20_000),
-      "1 ".repeat(50_000),
-      `password${" ".repeat(100_000)}x`,
+      "12-34-56 ".repeat(2_000),
+      "1-".repeat(9_999),
+      "⒈".repeat(20_000),
+      `password${" ".repeat(19_000)}x`,
     ]) {
+      expect(text.length).toBeLessThanOrEqual(MAX_SCAN_LENGTH);
       const started = Date.now();
-      rejectSecrets(text);
-      rejectProfileValues(text, { contact_phone: "+447700900123", nhs_number: "9434765919" });
+      const secrets = rejectSecrets(text);
+      const profile = rejectProfileValues(text, {
+        contact_phone: "+447700900123",
+        nhs_number: "9434765919",
+      });
       expect(Date.now() - started).toBeLessThan(2_000);
+      expect(secrets.ok || secrets.reason !== "too_long").toBe(true);
+      expect(profile.ok || profile.reason !== "too_long").toBe(true);
     }
+  });
+
+  it("refuses text over the limit without scanning it", () => {
+    const text = "1 ".repeat(MAX_SCAN_LENGTH);
+    expect(rejectSecrets(text)).toMatchObject({ ok: false, reason: "too_long" });
+    expect(rejectProfileValues(text, {})).toMatchObject({ ok: false, reason: "too_long" });
   });
 
   const luhnDigit = (body: number[]): number => {

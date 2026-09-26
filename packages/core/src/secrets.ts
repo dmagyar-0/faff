@@ -4,11 +4,12 @@
  * scanned on write and a match is rejected.
  *
  * Detectors run on NFKC-normalised text, so full-width digits can't slip past:
- * - **card_number**: 13–19 digits in any grouping of single spaces or dashes, starting 2–6 (the
- *   card networks), Luhn-valid.
- * - **bank_details**: a sort code (`nn-nn-nn`, `nn nn nn` or `nnnnnn`) with "sort code" just
- *   before it or an 8-digit account number near it; or "account number" followed by 8 digits.
- *   A bare `14-10-26` is a date.
+ * - **card_number**: 13–19 digits starting 2–6 (the card networks), Luhn-valid, as one block, a
+ *   printed grouping or blocks of three or more, separated by spaces, tabs, line breaks, dashes or
+ *   dots (spec 05 has the full rule).
+ * - **bank_details**: an IBAN that passes its checksum; a sort code (`nn-nn-nn`, `nn nn nn` or
+ *   `nnnnnn`) with "sort code" just before it or an 8-digit account number directly beside it; or
+ *   "account number" followed by 8 digits. A bare `14-10-26` is a date.
  * - **secret_value**: a secret's name followed by something that looks like its value ("my PIN is
  *   4471", "password: hunter2"). A bare mention ("they may ask for a PIN — say you don't have
  *   it") passes: that's exactly the note we want (M1-Q8a).
@@ -23,11 +24,15 @@ import { err, ok, type Result } from "./result";
 export const SECRET_KINDS = ["card_number", "bank_details", "secret_value"] as const;
 
 /**
- * The longest text scanned. Longer text is refused rather than scanned (`too_long`), so the
- * scan's cost has a bound; no note or chat message Faff keeps is anywhere near it.
+ * The longest text scanned, in characters before NFKC (which can expand a character to a few,
+ * as "⒈" to "1."). Longer text is refused rather than scanned (`too_long`), so the scan's cost
+ * has a bound; no note or chat message Faff keeps is anywhere near it.
  */
 export const MAX_SCAN_LENGTH = 20_000;
 export type SecretKind = (typeof SECRET_KINDS)[number];
+/** Every reason `rejectSecrets` can give. */
+export const SECRET_REASONS = [...SECRET_KINDS, "too_long"] as const;
+export type SecretReason = (typeof SECRET_REASONS)[number];
 
 /** Where the match is, as [start, end) offsets into the NFKC-normalised text. */
 export type Span = readonly [number, number];
@@ -179,7 +184,7 @@ const POSSESSIVE = "(?:['’]s)?";
 const NUMERIC_SECRETS =
   "pin(?:\\s*(?:number|code))?|passcode|cvv2?|cvc|csc|card\\s+security\\s+code|security\\s+code|one[\\s-]*time\\s+(?:pass)?code|otp|verification\\s+code|auth(?:entication)?\\s+code|(?:2fa|mfa|sms|login|access)\\s+code";
 const NUMERIC_SECRET = new RegExp(
-  `\\b(?:${NUMERIC_SECRETS})\\b${POSSESSIVE}[^\\w\\n]{0,3}(?:(?:is|was|=|:|number|code)[^\\w\\n]{0,3}){0,2}(\\d(?:[ -]?\\d){2,7})(?![\\d])`,
+  `\\b(?:${NUMERIC_SECRETS})\\b${POSSESSIVE}\\W{0,3}(?:(?:is|was|=|:|number|code)\\W{0,3}){0,2}(\\d(?:[ -]?\\d){2,7})(?![\\d])`,
   "gi",
 );
 
@@ -366,7 +371,7 @@ const findSecretValue = (text: string): Span | undefined => {
  */
 export const rejectSecrets = (
   text: string,
-): Result<string, SecretKind | "too_long", { readonly span: Span }> => {
+): Result<string, SecretReason, { readonly span: Span }> => {
   if (text.length > MAX_SCAN_LENGTH) return err("too_long", { span: [0, text.length] });
   const normalised = normaliseForScan(text);
   const card = findCard(normalised);

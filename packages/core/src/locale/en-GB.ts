@@ -83,7 +83,7 @@ const CLAUSE_WORDS = new Set(
     "doing dont doesnt didnt say says said speak speaks speaking spoke call calls calling called " +
     "hold please record recording recorded listen hello hi hey hiya sorry actually scratch not " +
     "no yes yeah ok okay ai human person people robot bot assistant behalf will would can could " +
-    "should shall may might must going gonna just now thanks thank"
+    "should shall may might must going gonna just now thanks thank iam ima imma for"
   ).split(" "),
 );
 
@@ -99,16 +99,25 @@ const NAME_CHARS = /[^A-Za-z0-9\u00C0-\u024F &'-]+/g;
  * can't start a new sentence; no pronoun or verb survives, so it can't make one. Anything else
  * falls back to {@link OPENER_FALLBACK}.
  */
-export const openerName = (name: string, avoid: readonly string[] = []): string | undefined => {
-  const words = name
+const nameWords = (text: string): string[] =>
+  text
     .normalize("NFKC")
     .replace(APOSTROPHES, "'")
     .replace(NAME_CHARS, " ")
     .split(/\s+/)
     .filter((w) => w !== "");
+
+export const openerName = (name: string, avoid: readonly string[] = []): string | undefined => {
+  const words = nameWords(name);
   const kept = words.slice(0, OPENER_NAME_MAX.words).join(" ");
-  const bare = (w: string): string => w.toLowerCase().replace(/'/g, "");
-  const banned = new Set([...CLAUSE_WORDS, ...avoid.map(bare)]);
+  // Dotless and other i-like letters read as "i" ("ı'm" is "I'm").
+  const bare = (w: string): string =>
+    w
+      .toLowerCase()
+      .replace(/[\u0131\u0269\u01C0\u0196]/g, "i")
+      .replace(/'/g, "");
+  // Each avoided name goes through the same steps, so "Mary Anne" and "D’Arcy" are caught.
+  const banned = new Set([...CLAUSE_WORDS, ...avoid.flatMap(nameWords).map(bare)]);
   if (
     kept === "" ||
     kept.length > OPENER_NAME_MAX.chars ||

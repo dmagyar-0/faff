@@ -14,6 +14,7 @@ import {
   APPROVAL_CARD_REMINDER,
   CAPABILITY_STATEMENT,
   disclosureOpener,
+  OPENER_FALLBACK,
   openerParts,
   emailSignature,
   isUkDialable,
@@ -113,6 +114,16 @@ describe("I-1 strings match their fixtures byte for byte", () => {
     ).toBe(
       "Hi, I'm an AI assistant calling on behalf of a patient — have I reached the right number?",
     );
+    for (const [businessName, avoid] of [
+      ["Smile Dental Mary Anne", "Mary Anne"],
+      ["D'Arcy Dental", "D’Arcy"],
+      ["ı'm Dental", "Zoe"],
+      ["Iam Real Dentist", "Zoe"],
+    ] as const) {
+      expect(disclosureOpener({ kind: "dentist", businessName, avoid: [avoid] })).toContain(
+        OPENER_FALLBACK,
+      );
+    }
     expect(openerParts("Smile Dental, Clapham")).toEqual({
       businessName: "Smile Dental",
       location: "Clapham",

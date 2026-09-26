@@ -130,6 +130,13 @@ export const durationWords = (duration: string): string => {
   return words.length === 0 ? "0 minutes" : words.join(" ");
 };
 
+/** A URL as one token: whitespace and quote marks percent-encoded, so it can't write card prose. */
+const safeUrl = (url: string): string =>
+  url.replace(/[\s"'“”‘’«»„‟<>]/g, (c) => encodeURIComponent(c));
+
+/** Outside text inside “…”: its own quote marks become ', so it can't close the quote early. */
+const quoted = (text: string): string => oneLine(text).replace(/[“”"«»„‟]/g, "'");
+
 const contactLines = (brief: Brief): string[] => {
   const c = brief.business.contact;
   const value = brief.channel.chosen === "phone" ? c.phone : c.email;
@@ -138,7 +145,7 @@ const contactLines = (brief: Brief): string[] => {
       ? "from your saved details"
       : c.source === "observations"
         ? "from Faff's records of earlier calls and emails"
-        : `found on ${c.evidence.url}, which says: “${oneLine(c.evidence.quote)}”`;
+        : `found on ${safeUrl(c.evidence.url)}, which says: “${quoted(c.evidence.quote)}”`;
   // The Brief refinement guarantees the chosen channel has its value.
   const lines = [`${value}, ${where}.`];
   if (brief.channel.chosen === "email" && c.phone !== undefined) {
