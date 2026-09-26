@@ -4,6 +4,7 @@
 
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 import { ESLint } from "eslint";
@@ -40,6 +41,18 @@ const mustFail = {
     "no-restricted-imports",
   ],
   "dynamic import": ["export const m = import('zod');", "no-restricted-syntax"],
+  "temporal-polyfill/global outside time.ts": [
+    "import 'temporal-polyfill/global';\nexport const x = 1;",
+    "no-restricted-imports",
+  ],
+  "a global Temporal outside time.ts": [
+    "export const t = (s: string) => Temporal.Instant.from(s);",
+    "no-restricted-globals",
+  ],
+  "temporal-polyfill outside time.ts": [
+    "import { Temporal } from 'temporal-polyfill';\nexport { Temporal };",
+    "no-restricted-imports",
+  ],
 };
 
 const mustPass = {
@@ -78,6 +91,22 @@ for (const ext of ["tsx", "mts", "cts"]) {
   });
   if (result.messages.some((m) => m.ruleId?.startsWith("no-restricted-"))) {
     failures.push("core purity: a test file was wrongly held to the purity rules");
+  }
+}
+
+// time.ts is the one module that may import Temporal, and it is still held to the rest.
+{
+  const timeFile = path.join(root, "packages/core/src/time.ts");
+  const [allowed] = await eslint.lintText(
+    "import { Temporal } from 'temporal-polyfill';\nexport { Temporal };",
+    { filePath: timeFile },
+  );
+  if (allowed.messages.some((m) => m.ruleId === "no-restricted-imports")) {
+    failures.push("core purity: time.ts was wrongly stopped from importing temporal-polyfill");
+  }
+  const [clock] = await eslint.lintText("export const t = Date.now();", { filePath: timeFile });
+  if (!clock.messages.some((m) => m.ruleId === "no-restricted-properties")) {
+    failures.push("core purity: Date.now() in time.ts was not reported");
   }
 }
 
@@ -212,6 +241,57 @@ for (const line of ["*.md", "/docs/", "claims.tsx"]) {
   }
 }
 
+// --- 5. The Brief JSON Schema drift check ------------------------------------------------
+
+// `pnpm schema:check` compares docs/spec/schemas/brief.v1.json with toJsonSchema(). Run it
+// against copies: the committed file must pass, and a drifted or missing one must fail.
+const schemaCases = [];
+{
+  const committed = fs.readFileSync(path.join(root, "docs/spec/schemas/brief.v1.json"), "utf8");
+  const drifted = committed.replace(
+    '"maxDialAttempts": { "default": 3,',
+    '"maxDialAttempts": { "default": 99,',
+  );
+  if (drifted === committed) {
+    failures.push("schema drift: the maxDialAttempts default the drift case edits wasn't found");
+  }
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "faff-rails-schema-"));
+  const cases = {
+    "the committed schema": [committed, 0],
+    // Formatted as the committed file is, so the default is the only difference.
+    "a drifted default": [drifted, 1],
+    "a whitespace-only change": [committed.replace(/\n$/, ""), 1],
+    "a missing file": [undefined, 1],
+  };
+  try {
+    for (const [label, [content, expected]] of Object.entries(cases)) {
+      const file = path.join(tmp, `${schemaCases.length}.json`);
+      if (content !== undefined) fs.writeFileSync(file, content);
+      let status = 0;
+      try {
+        execFileSync(
+          "pnpm",
+          ["exec", "tsx", "tooling/brief-schema.ts", "--check", "--file", file],
+          {
+            cwd: root,
+            stdio: "pipe",
+          },
+        );
+      } catch (error) {
+        status = error.status;
+      }
+      schemaCases.push(label);
+      if (status !== expected) {
+        failures.push(
+          `schema drift: ${label} exited ${status}, expected ${expected === 0 ? "a pass" : "a failure"}`,
+        );
+      }
+    }
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
 // --- Result -------------------------------------------------------------------------------
 
 if (failures.length > 0) {
@@ -219,8 +299,9 @@ if (failures.length > 0) {
   for (const f of failures) console.error(`  ✗ ${f}`);
   process.exit(1);
 }
-const count = Object.keys(mustFail).length + Object.keys(mustPass).length + 4;
+const count = Object.keys(mustFail).length + Object.keys(mustPass).length + 6;
 console.log(
   `Rails self-test passed: ${count} purity-lint cases, 2 Next lint cases, ` +
-    `${Object.keys(fixtures).length} dependency cases, ${guarded.length + ownerRemovals.length + 3} CODEOWNERS cases.`,
+    `${Object.keys(fixtures).length} dependency cases, ${guarded.length + ownerRemovals.length + 3} CODEOWNERS cases, ` +
+    `${schemaCases.length} schema-drift cases.`,
 );

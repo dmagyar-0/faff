@@ -12,15 +12,27 @@ import tseslint from "typescript-eslint";
  * randomness, environment or database (implementation plan §2.1, M0 plan §4). Time and IDs
  * are passed in as arguments. Tests are exempt.
  */
-const corePurity = {
+const temporalOnlyInTime = {
+  name: "temporal-polyfill",
+  message:
+    "Import Temporal from ./time (M1 plan §2), so moving to native Temporal is a one-line change.",
+};
+
+const corePurity = (allowTemporal = false) => ({
   "no-restricted-imports": [
     "error",
     {
-      paths: builtinModules.map((name) => ({
-        name,
-        message: "packages/core has no I/O. Pass data in as arguments.",
-      })),
+      paths: [
+        ...builtinModules.map((name) => ({
+          name,
+          message: "packages/core has no I/O. Pass data in as arguments.",
+        })),
+        ...(allowTemporal ? [] : [temporalOnlyInTime]),
+      ],
       patterns: [
+        ...(allowTemporal
+          ? []
+          : [{ group: ["temporal-polyfill/*"], message: temporalOnlyInTime.message }]),
         {
           group: ["node:*"],
           message: "packages/core has no I/O. Pass data in as arguments.",
@@ -38,6 +50,7 @@ const corePurity = {
   ],
   "no-restricted-globals": [
     "error",
+    ...(allowTemporal ? [] : [{ name: "Temporal", message: temporalOnlyInTime.message }]),
     ...[
       "fetch",
       "XMLHttpRequest",
@@ -79,7 +92,7 @@ const corePurity = {
       message: "No dynamic imports in packages/core.",
     },
   ],
-};
+});
 
 export default defineConfig(
   {
@@ -93,8 +106,12 @@ export default defineConfig(
   },
   {
     files: ["packages/core/src/**/*.{ts,tsx,mts,cts}"],
-    ignores: ["**/*.test.{ts,tsx,mts,cts}"],
-    rules: corePurity,
+    ignores: ["**/*.test.{ts,tsx,mts,cts}", "packages/core/src/time.ts"],
+    rules: corePurity(),
+  },
+  {
+    files: ["packages/core/src/time.ts"],
+    rules: corePurity(true),
   },
   // Next.js rules, for apps/web only (M0 plan §2).
   {

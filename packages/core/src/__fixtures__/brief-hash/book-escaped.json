@@ -1,0 +1,79 @@
+{
+  "about": "book-full with non-ASCII written as \\u escapes in the JSON source. Same hash as book-full. A regression anchor: JSON parsing already resolves the escapes, so this guards the pipeline, not canonicalJson.",
+  "hash": "sha256:6b93efc9b2be459b9c9766f100cfaacdc5a9ba649c13c5a28f93daf9200d1b88",
+  "brief": {
+    "schema": "faff.brief/v1",
+    "briefId": "0b6f3a52-6c1e-4f59-9a55-2f0d5d1c7a01",
+    "revision": 1,
+    "userId": "5d2c8e0e-1a6b-4b1f-8f7e-9c3b2a1d0e11",
+    "locale": "en-GB",
+    "timezone": "Europe/London",
+    "verb": "book",
+    "business": {
+      "businessId": "7a1e4c2b-3d5f-4a6b-8c9d-0e1f2a3b4c21",
+      "displayName": "Gabinet \u0141ukasz Dental, Ealing",
+      "kind": "dentist",
+      "address": "1 High St, London W5 5AA",
+      "contact": {
+        "source": "web_extract",
+        "phone": "+442079460000",
+        "evidence": {
+          "url": "https://lukaszdental.example/contact",
+          "quote": "Bookings: 020 7946 0000",
+          "fetchedAt": "2026-09-20T10:00:00Z"
+        }
+      },
+      "contactPolicy": {
+        "autoSwitchOnWrongNumber": true
+      }
+    },
+    "forPerson": {
+      "firstName": "Zo\u00eb"
+    },
+    "channel": {
+      "chosen": "phone",
+      "reason": "default_phone",
+      "emailFallbackToPhoneAfter": {
+        "workingDays": 2
+      }
+    },
+    "service": {
+      "description": "routine check-up",
+      "durationMinutes": 30
+    },
+    "acceptance": {
+      "windows": [
+        {
+          "kind": "absolute",
+          "start": "2026-10-05T09:00:00+01:00",
+          "end": "2026-10-05T12:00:00+01:00"
+        },
+        {
+          "kind": "recurring",
+          "days": ["tue", "thu"],
+          "from": "16:00",
+          "to": "18:30",
+          "between": {
+            "start": "2026-10-01",
+            "end": "2026-10-31"
+          }
+        }
+      ],
+      "avoidCalendarConflicts": true,
+      "bufferMinutes": 30,
+      "preference": {
+        "closestTo": "2026-10-06T17:00:00+01:00"
+      },
+      "minNoticeHours": 24
+    },
+    "disclosure": {
+      "allowedFields": ["full_name", "date_of_birth"]
+    },
+    "limits": {
+      "maxDialAttempts": 3,
+      "maxCallMinutes": 30,
+      "maxLifetime": "P7D"
+    },
+    "notesForAgent": "Prefers mornings \ud83c\udf05 \u2014 ask for the hygienist too"
+  }
+}

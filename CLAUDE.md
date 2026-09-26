@@ -23,9 +23,12 @@ Node 24 (`.nvmrc`) and pnpm 10 (`packageManager`).
 | `pnpm typecheck` | `tsc -b` across the project references (typecheck only; nothing is emitted except declarations into `.tsbuild/`) |
 | `pnpm test` / `pnpm test:coverage` | Vitest across every package |
 | `pnpm deps` | dependency-cruiser: the workspace dependency matrix |
-| `pnpm rails` | Proves the purity lint, the Next lint scope, the matrix and the `claims.ts` CODEOWNERS entry still catch known violations |
+| `pnpm schema:write` / `pnpm schema:check` | Write, or check for drift, `docs/spec/schemas/brief.v1.json` from the zod schema in `packages/core`. Commit the result; CI fails on a diff |
+| `pnpm rails` | Proves the purity lint, the Next lint scope, the matrix, the `claims.ts` CODEOWNERS entry and the schema drift check still catch known violations |
 
 Tests sit next to the code as `*.test.ts`. Import `describe`/`it`/`expect` from `vitest` explicitly; there are no globals.
+
+In `packages/core`, property tests use fast-check with at least 1,000 runs from a fixed seed (`packages/core/vitest.setup.ts`; set `FC_SEED` to try others). Each PR adds per-file coverage thresholds for the files it writes to the root `vitest.config.ts`; CI enforces them in `pnpm test:coverage`.
 
 ### Database
 

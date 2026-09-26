@@ -49,7 +49,16 @@ jobs:
       - uses: ./.github/actions/setup
       - run: pnpm deps
 
-  # Proves the purity lint and the dependency matrix still catch known violations.
+  # docs/spec/schemas/brief.v1.json must match toJsonSchema() from packages/core (spec 02).
+  schema:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: pnpm schema:check
+
+  # Proves the purity lint, the dependency matrix and the schema drift check still catch known
+  # violations.
   rails:
     runs-on: ubuntu-latest
     steps:
