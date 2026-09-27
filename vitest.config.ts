@@ -13,6 +13,7 @@ const core = (pct: number) => ({
   statements: pct,
 });
 const CORE_90 = core(90);
+const CORE_95 = core(95);
 
 export default defineConfig({
   test: {
@@ -20,16 +21,22 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["packages/*/src/**", "apps/*/src/**", "evals/src/**"],
-      exclude: ["**/*.test.{ts,tsx}", "**/__selftest__/**"],
+      exclude: ["**/*.test.{ts,tsx}", "**/__selftest__/**", "**/__snapshots__/**"],
       reporter: ["text-summary", "json-summary"],
       thresholds: {
         // M1 PR 1.5: knowledge and contacts.
         "packages/core/src/{citation,contact-switch,working-days}.ts": core(95),
         "packages/core/src/{channel,identity-match,profile-derive}.ts": CORE_90,
+        // M1 PR 1.6: text safety and locale.
+        "packages/core/src/secrets.ts": core(95),
+        "packages/core/src/{locale,render}/**/*.ts": CORE_90,
         // M1 PR 1.1: schemas and hashing.
         "packages/core/src/{acceptance-rule,brief,canonical,contact,observations,outcome}.ts":
           CORE_90,
         "packages/core/src/{practitioner,primitives,result,time}.ts": CORE_90,
+        // M1 PR 1.2: time and acceptance.
+        "packages/core/src/acceptance.ts": CORE_95,
+        "packages/core/src/heard-date.ts": CORE_90,
       },
     },
   },

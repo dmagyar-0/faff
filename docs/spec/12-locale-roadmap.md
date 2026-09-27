@@ -6,7 +6,7 @@ v1 ships **`en-GB` only**. Nothing Hungarian gets built now. The only commitment
 
 - Every Brief carries `locale` and `timezone`. Nothing assumes Europe/London implicitly.
 - Phone numbers are always E.164. Formatting for display and speech is per locale.
-- Every user-facing or callee-facing string comes from a per-locale catalogue: the disclosure opener template, the voicemail greeting, the email signature, the capability statement. The **fixed disclosure templates are per locale and each is reviewed as a legal artefact**, not just translated.
+- Every user-facing or callee-facing string comes from a per-locale catalogue: the disclosure opener template, the voicemail greeting, the email signature, the capability statement. The **fixed disclosure templates are per locale and each is reviewed as a legal artefact**, not just translated. The en-GB catalogue is `packages/core/src/locale/en-GB.ts`, owned in `.github/CODEOWNERS`; the user-facing capability claims in it are re-exported from `apps/web/content/claims.ts` (I-12). It also holds the England & Wales bank holidays used for working days (M1-Q3), the NHS directory domains, and the v1 `+44` dialling check (G12).
 - Business-type nouns (patient, customer, client) are per locale.
 - Date parsing and speech (for example "the fourteenth" vs "14-én") live behind a locale interface in `core`.
 - Profile fields are locale-aware: `postcode` vs `irányítószám`, and the NHS number is a GB-only field. Hungary's TAJ number would be its own field with the same separate opt-in treatment.

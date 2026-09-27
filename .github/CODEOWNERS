@@ -5,5 +5,12 @@
 # change it (docs/spec/00-invariants.md).
 /apps/web/content/claims.ts @dmagyar-0
 
+# The en-GB catalogue and the renderers built on it (M1 plan §3.14): the I-1 disclosure opener,
+# the email signature, the voicemail greeting, the capability statement and the approval card.
+# Each is a legal artefact (spec 12). claims.ts re-exports the user-facing claims from here.
+/packages/core/src/locale/ @dmagyar-0
+/packages/core/src/render/ @dmagyar-0
+/packages/core/src/__fixtures__/en-GB/ @dmagyar-0
+
 # This file, so the rule above can't be removed without the same review.
 /.github/CODEOWNERS @dmagyar-0
