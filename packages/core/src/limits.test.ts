@@ -405,7 +405,8 @@ describe("nextRedialAt", () => {
 
   it("keeps the 5-minute gap when a person says they're about to open", () => {
     // Tue 09:58 BST a receptionist answers: "we open at ten, call back then". The next window
-    // (fallback 09:00–17:30) is already open, so the 20-minute backoff decides, not the gap.
+    // (fallback 09:00–17:30) is open and nobody said closed, so the 20-minute backoff (09:18Z) runs
+    // past the 5-minute gap and decides.
     const history = [dial("2026-10-13T08:58:00Z", { humanAnswered: true })];
     expect(iso(nextRedialAt({ ...base, now: at("2026-10-13T08:58:00Z"), history }))).toBe(
       "2026-10-13T09:18:00Z",

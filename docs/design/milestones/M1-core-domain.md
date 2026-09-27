@@ -274,7 +274,7 @@ M1 is done when all of these are true on `main`:
 - [ ] Both `secrets` corpora pass: every positive flagged, every false-positive case allowed.
 - [ ] The en-GB signature and opener match their fixtures byte for byte.
 - [ ] `core` has no internal dependencies and only the allow-listed runtime ones (M0's dependency check).
-- [ ] The accepted defaults for G1, G3–G5 and G13–G23 are recorded: the spec files updated where a default changes the spec, and a decision record for any that change an interview decision (none are expected to).
+- [ ] The accepted defaults for G1, G3–G5 and G13–G27 are recorded: the spec files updated where a default changes the spec, and a decision record for any that change an interview decision (none are expected to).
 
 ---
 
