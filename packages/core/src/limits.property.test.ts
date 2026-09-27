@@ -304,7 +304,6 @@ describe("limits properties", () => {
         expect(b.closeAfterSeconds).toBeGreaterThanOrEqual(0);
         expect(b.hardStopAfterSeconds - b.closeAfterSeconds).toBeLessThanOrEqual(
           CLOSE_LEAD_SECONDS,
-          DEFAULT_OPENING_HOURS,
         );
       }),
     );
