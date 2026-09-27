@@ -132,7 +132,7 @@ Semantics:
 - `remaining(limits, usage, dispatchedAt, now) → { dials, callSeconds, lifetimeUntil }`.
 - `mayDial(ctx) → ok | notBefore(at, reason) | exhausted(which)`. Checks attempts, minutes, lifetime, opening hours, and **no dial within 5 minutes of a human-answered call**.
 - `nextRedialAt(history, openingHours, now)`: 20 min, then 2 h, then 2 h for any further attempts a raised limit allows; always moved into the next opening window. Opening hours come from observations, else Mon–Fri 09:00–17:30 in the Brief's timezone. An IVR "we're closed" counts as an attempt and schedules into the next window.
-- `callBudget(remainingSeconds) → { closeAt, hardStopAt }`: the watchdog starts the graceful close **60 s before** the limit and the provider's `maxDurationSec` is the limit itself. The spec calls the provider limit a backstop; if it were set above the limit, `limits_respected` would fail whenever the watchdog missed.
+- `callBudget(remainingSeconds) → { closeAfterSeconds, hardStopAfterSeconds }`: the watchdog starts the graceful close **60 s before** the limit and the provider's `maxDurationSec` is the limit itself. The spec calls the provider limit a backstop; if it were set above the limit, `limits_respected` would fail whenever the watchdog missed.
 - `addWorkingDays(instant, n, timezone, holidays)` for the email fallback (M1-Q3). Holidays are an argument; the en-GB list lives in `locale/en-GB`.
 
 ### 3.7 `channel.ts`
@@ -234,6 +234,10 @@ These go into the plan's §5 table as G13 onwards when this plan is accepted.
 | **G21** | `notesForAgent` goes into the phone prompt. A user who types their date of birth into the notes puts a profile value in the prompt, bypassing `reveal_profile_field` (D3, I-7) | 02, 05 | Also reject notes that contain any of the user's own profile values: `rejectProfileValues(text, values)`, run at draft time by the web server (M1-Q8) |
 | **G22** | The prompt carries "the user's first name for the identity step" (spec 01), but the Brief has no such field, so the worker would read it from outside the Brief (I-3) | 01, 02 | Add `forPerson: { firstName }` to the Brief, pinned at draft time (M1-Q7) |
 | **G23** | Spec 03's lifetime row fails an unanswered lifetime escalation after 48h; G5 proposes 7 days for every escalation | 03, plan G5 | Both: 48h when the reason is `limit_reached` (the task is already over its limits), 7 days otherwise (M1-Q2) |
+| **G24** | Spec 03's opening hours don't say whether a business is open on a bank holiday | 03 | Closed, for observed hours and the fallback alike; the locale's holiday list is passed in (found in PR 1.3) |
+| **G25** | A dial with a few seconds of `maxCallMinutes` left would be cut before the disclosure and a close (I-4) | 02, 03 | A dial needs at least 60 s left (the watchdog's close lead); below that the minutes are exhausted (found in PR 1.3) |
+| **G26** | `maxLifetime` in days: calendar days or 24-hour days across a clock change? | 02 | 24 hours of elapsed time per day (found in PR 1.3) |
+| **G27** | If the next allowed dial falls after the lifetime ends, the task would sleep until a wake that can only escalate | 03 | `exhausted(lifetime)` now, so `limit_reached` escalates straight away (found in PR 1.3) |
 
 ---
 

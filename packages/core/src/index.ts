@@ -24,4 +24,5 @@ export * from "./contact-switch";
 export * from "./identity-match";
 export * from "./profile-derive";
 export * from "./working-days";
+export * from "./limits";
 export { normalisePractitioner, samePractitioner } from "./practitioner";

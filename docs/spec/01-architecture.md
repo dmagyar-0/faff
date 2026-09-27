@@ -95,7 +95,7 @@ interface PlaceCallRequest {
   openingTemplate: string;  // fixed disclosure line, rendered by core (I-1)
   systemPrompt: string;     // Brief-derived; contains no disclosable profile values (D3)
   tools: ToolManifest;      // points at the tools server with a per-call token
-  maxDurationSec: number;   // from Brief limits (I-8)
+  maxDurationSec: number;   // callBudget(remaining).hardStopAfterSeconds: the limit, never above (I-8)
   record: boolean;          // false if the user opted out (Q25)
 }
 ```

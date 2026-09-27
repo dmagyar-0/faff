@@ -37,6 +37,8 @@ export default defineConfig({
         // M1 PR 1.2: time and acceptance.
         "packages/core/src/acceptance.ts": CORE_95,
         "packages/core/src/heard-date.ts": CORE_90,
+        // M1 PR 1.3: limits.
+        "packages/core/src/limits.ts": CORE_95,
       },
     },
   },

@@ -101,7 +101,7 @@ type E164 = string;                // "+442079460000"
 
 ## Limits
 
-**[derived D6]** Defaults are 3 dial attempts, 30 call minutes and 7 days of lifetime. They are set in config and shown on the Brief. Hitting any limit → `escalated` with reason `limit_reached` (I-8). Money is out of scope (Q26), so the limits are counted in attempts and minutes. Pricing later becomes a conversion from minutes, not a schema change.
+**[derived D6]** Defaults are 3 dial attempts, 30 call minutes and 7 days of lifetime. They are set in config and shown on the Brief. Hitting any limit → `escalated` with reason `limit_reached` (I-8). How each is counted (a dial needs a minute of call time left; a lifetime day is 24 hours) is in [03](03-task-state-machine.md#redial-policy). Money is out of scope (Q26), so the limits are counted in attempts and minutes. Pricing later becomes a conversion from minutes, not a schema change.
 
 ## Revisions
 
