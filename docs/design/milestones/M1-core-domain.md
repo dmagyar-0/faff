@@ -129,9 +129,9 @@ Semantics:
 
 ### 3.6 `limits.ts` (I-8, I-4)
 
-- `remaining(limits, usage, dispatchedAt, now) → { dials, callSeconds, lifetimeUntil }`.
+- `remaining(limits, usage, dispatchedAt, now) → { dials, callSeconds, lifetimeUntil, lifetimeSeconds }`.
 - `mayDial(ctx) → ok | notBefore(at, reason) | exhausted(which)`. Checks attempts, minutes, lifetime, opening hours, and **no dial within 5 minutes of a human-answered call**.
-- `nextRedialAt(history, openingHours, now)`: 20 min, then 2 h, then 2 h for any further attempts a raised limit allows; always moved into the next opening window. Opening hours come from observations, else Mon–Fri 09:00–17:30 in the Brief's timezone. An IVR "we're closed" counts as an attempt and schedules into the next window.
+- `nextRedialAt({ history, openingHours, timezone, holidays, now })` (and `planRedial`, which adds the limit checks): 20 min, then 2 h, then 2 h for any further attempts a raised limit allows; always moved into the next opening window. Opening hours come from observations, else Mon–Fri 09:00–17:30 in the Brief's timezone. An IVR "we're closed" counts as an attempt and schedules into the next window.
 - `callBudget(remainingSeconds) → { closeAfterSeconds, hardStopAfterSeconds }`: the watchdog starts the graceful close **60 s before** the limit and the provider's `maxDurationSec` is the limit itself. The spec calls the provider limit a backstop; if it were set above the limit, `limits_respected` would fail whenever the watchdog missed.
 - `addWorkingDays(instant, n, timezone, holidays)` for the email fallback (M1-Q3). Holidays are an argument; the en-GB list lives in `locale/en-GB`.
 

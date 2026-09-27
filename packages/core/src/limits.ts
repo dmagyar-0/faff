@@ -47,7 +47,7 @@ export const LIMIT_KINDS = ["attempts", "minutes", "lifetime"] as const;
 export type LimitKind = (typeof LIMIT_KINDS)[number];
 
 /** Why a dial has to wait. */
-export const WAIT_REASONS = ["closed", "human_answered_recently"] as const;
+export const WAIT_REASONS = ["closed", "human_answered_recently", "backoff"] as const;
 export type WaitReason = (typeof WAIT_REASONS)[number];
 
 /** The task's counters (`tasks.attempts_used`, `tasks.call_seconds_used`), across revisions (G3). */
@@ -84,6 +84,11 @@ export type DialContext = {
   readonly holidays: Holidays;
   /** Every dial made on this task so far, in any order. */
   readonly history: readonly DialRecord[];
+  /**
+   * The redial time `planRedial` scheduled, if this dial is a redial. `mayDial` holds to it, so a
+   * timer that fires early or twice can't cut the backoff short.
+   */
+  readonly notBefore?: Instant | undefined;
 };
 
 export type DialVerdict =
@@ -106,8 +111,14 @@ type Interval = { readonly start: Instant; readonly end: Instant };
 
 const later = (a: Instant, b: Instant): Instant => (compareInstants(a, b) >= 0 ? a : b);
 
-/** A counter as a whole, non-negative number, whatever the caller passed. */
-const count = (n: number): number => (Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0);
+/**
+ * A usage counter as whole units, rounded up: 1740.5 seconds used leaves 59 of 1800, not 60.
+ * A counter that isn't a finite, non-negative number can't be trusted, so it uses everything up.
+ */
+const used = (n: number): number => (Number.isFinite(n) && n >= 0 ? Math.ceil(n) : Infinity);
+
+/** Whole seconds, rounded down, never negative. */
+const wholeSeconds = (n: number): number => (Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0);
 
 /**
  * What is left of each limit. A lifetime day is 24 hours of elapsed time, so a lifetime that
@@ -122,8 +133,8 @@ export const remaining = (
 ): Remaining => {
   const lifetimeUntil = dispatchedAt.add({ seconds: durationSeconds(limits.maxLifetime) ?? 0 });
   return {
-    dials: Math.max(0, limits.maxDialAttempts - count(usage.attemptsUsed)),
-    callSeconds: Math.max(0, limits.maxCallMinutes * 60 - count(usage.callSecondsUsed)),
+    dials: Math.max(0, limits.maxDialAttempts - used(usage.attemptsUsed)),
+    callSeconds: Math.max(0, limits.maxCallMinutes * 60 - used(usage.callSecondsUsed)),
     lifetimeUntil,
     lifetimeSeconds: Math.max(0, Math.floor(lifetimeUntil.since(now).total({ unit: "seconds" }))),
   };
@@ -147,7 +158,8 @@ const usablePeriods = (hours: readonly OpeningPeriod[] | undefined): readonly Op
  * Every opening window from the day before `from` for `days` days, merged where they touch or
  * overlap. A period with `from > to` runs past midnight and belongs to the day it starts on; a
  * bank holiday closes the periods that start on it. The last window may be cut short where the
- * range ends; starts are never affected.
+ * range ends, and one that was already open the day before starts there instead; both edges are
+ * outside what callers ask about (a window containing `at`, or one starting after it).
  */
 const openingWindows = (
   from: Instant,
@@ -247,18 +259,26 @@ const humanGapUntil = (history: readonly DialRecord[]): Instant | undefined =>
 /**
  * Whether the worker may dial now (I-8, I-4). Exhausted limits come first, in the order
  * attempts, minutes, lifetime. Otherwise the dial waits for the 5-minute gap after a call a human
- * answered and then for the business to be open. If that wait runs to the end of the lifetime,
- * the lifetime is exhausted: a wake after it could only escalate.
+ * answered, for `notBefore` (the scheduled redial) if given, and then for the business to be
+ * open. If that wait runs to the end of the lifetime, the lifetime is exhausted: a wake after it
+ * could only escalate.
  *
- * It does not apply the redial backoff: that is `planRedial`'s schedule, and a revision approved
- * after an escalation may dial as soon as these rules allow.
+ * Without `notBefore` it doesn't apply the redial backoff: a revision approved after an escalation
+ * may dial as soon as the other rules allow.
  */
+/** What set the wait: closed hours, else the scheduled backoff, else the human-answered gap. */
+const waitReason = (open: Instant, earliest: Instant, afterGap: Instant): WaitReason => {
+  if (compareInstants(open, earliest) > 0) return "closed";
+  return compareInstants(earliest, afterGap) > 0 ? "backoff" : "human_answered_recently";
+};
+
 export const mayDial = (ctx: DialContext): DialVerdict => {
   const left = remaining(ctx.limits, ctx.usage, ctx.dispatchedAt, ctx.now);
   const which = exhaustedLimit(left, ctx.now);
   if (which !== undefined) return { kind: "exhausted", which };
   const gap = humanGapUntil(ctx.history);
-  const earliest = gap === undefined ? ctx.now : later(gap, ctx.now);
+  const afterGap = gap === undefined ? ctx.now : later(gap, ctx.now);
+  const earliest = ctx.notBefore === undefined ? afterGap : later(ctx.notBefore, afterGap);
   const open = nextOpenAt(earliest, ctx.openingHours, ctx.timezone, ctx.holidays);
   if (open === undefined || compareInstants(open, left.lifetimeUntil) >= 0) {
     return { kind: "exhausted", which: "lifetime" };
@@ -267,19 +287,19 @@ export const mayDial = (ctx: DialContext): DialVerdict => {
   return {
     kind: "not_before",
     at: open,
-    reason: compareInstants(open, earliest) > 0 ? "closed" : "human_answered_recently",
+    reason: waitReason(open, earliest, afterGap),
   };
 };
 
 /**
  * When to redial after the latest call (spec 03): 20 minutes after the first attempt ended, 2
  * hours after each later one, or the start of the next opening window if an IVR said the
- * business was closed. Never within 5 minutes of a call a human answered, never before `now`, and
+ * business was closed (the backoff, if the hours never close). Never within 5 minutes of a call a human answered, never before `now`, and
  * always moved into an opening window. `undefined` if nothing opens within
  * `OPENING_SEARCH_DAYS`. Limits aren't checked here; `planRedial` does both.
  */
 export const nextRedialAt = (
-  ctx: Omit<DialContext, "limits" | "usage" | "dispatchedAt">,
+  ctx: Omit<DialContext, "limits" | "usage" | "dispatchedAt" | "notBefore">,
 ): Instant | undefined => {
   const { history, openingHours, timezone, holidays, now } = ctx;
   const backoff = history.length === 1 ? FIRST_REDIAL_MINUTES : LATER_REDIAL_MINUTES;
@@ -289,10 +309,10 @@ export const nextRedialAt = (
   let earliest = now;
   // Two calls can end at the same instant; the later of their due times wins, in any order.
   for (const d of latest) {
+    const afterBackoff = d.endedAt.add({ minutes: backoff });
     const due = d.heardClosed
-      ? nextWindowStartAfter(d.endedAt, openingHours, timezone, holidays)
-      : d.endedAt.add({ minutes: backoff });
-    if (due === undefined) return undefined;
+      ? (nextWindowStartAfter(d.endedAt, openingHours, timezone, holidays) ?? afterBackoff)
+      : afterBackoff;
     earliest = later(earliest, due);
   }
   const gap = humanGapUntil(history);
@@ -303,7 +323,8 @@ export const nextRedialAt = (
 /**
  * What happens after a call that didn't reach an outcome: a redial time, or the limit that stops
  * the task (→ `escalated(limit_reached)`, I-8). `ctx.usage` already counts the call that just
- * ended. At the planned time, `mayDial` with the same inputs says `ok`.
+ * ended. At the planned time, `mayDial` with the same inputs and `notBefore` set to it says
+ * `ok`.
  */
 export const planRedial = (ctx: DialContext): RedialPlan => {
   const left = remaining(ctx.limits, ctx.usage, ctx.dispatchedAt, ctx.now);
@@ -323,7 +344,7 @@ export const planRedial = (ctx: DialContext): RedialPlan => {
  * run past the limit (`limits_respected`).
  */
 export const callBudget = (remainingSeconds: number): CallBudget => {
-  const hardStopAfterSeconds = count(remainingSeconds);
+  const hardStopAfterSeconds = wholeSeconds(remainingSeconds);
   return {
     closeAfterSeconds: Math.max(0, hardStopAfterSeconds - CLOSE_LEAD_SECONDS),
     hardStopAfterSeconds,

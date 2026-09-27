@@ -70,7 +70,7 @@ describe("remaining", () => {
     expect(iso(left.lifetimeUntil)).toBe("2026-10-30T09:00:00Z");
   });
 
-  it("never goes negative, and reads a nonsense counter as zero", () => {
+  it("never goes negative, and a counter it can't trust uses everything up", () => {
     const left = remaining(
       Limits.parse({ maxLifetime: "PT1H" }),
       { attemptsUsed: 9, callSecondsUsed: 99_999 },
@@ -84,7 +84,28 @@ describe("remaining", () => {
       at("2026-10-12T08:00:00Z"),
       at("2026-10-12T08:00:00Z"),
     );
-    expect([odd.dials, odd.callSeconds]).toEqual([3, 1800]);
+    expect([odd.dials, odd.callSeconds]).toEqual([0, 0]);
+    const infinite = remaining(
+      DEFAULTS,
+      { attemptsUsed: 0, callSecondsUsed: Number.POSITIVE_INFINITY },
+      at("2026-10-12T08:00:00Z"),
+      at("2026-10-12T08:00:00Z"),
+    );
+    expect([infinite.dials, infinite.callSeconds]).toEqual([3, 0]);
+  });
+
+  it("rounds used seconds up, so a fraction can't buy time past the limit (I-8)", () => {
+    const left = remaining(
+      DEFAULTS,
+      { attemptsUsed: 1, callSecondsUsed: 1740.5 },
+      at("2026-10-12T08:00:00Z"),
+      at("2026-10-12T08:00:00Z"),
+    );
+    expect(left.callSeconds).toBe(59);
+    expect(mayDial(ctx({ usage: { attemptsUsed: 1, callSecondsUsed: 1740.5 } }))).toEqual({
+      kind: "exhausted",
+      which: "minutes",
+    });
   });
 
   it("treats an unreadable lifetime as none left", () => {
@@ -200,6 +221,28 @@ describe("mayDial: opening hours (fallback Mon–Fri 09:00–17:30)", () => {
       dial("2026-10-13T08:40:00Z", { humanAnswered: true }),
     ];
     expect(wait(TUE_10, { history })).toEqual(["2026-10-13T09:03:00Z", "human_answered_recently"]);
+  });
+
+  it("holds to the scheduled redial time, so an early timer can't cut the backoff", () => {
+    const notBefore = at("2026-10-13T09:20:00Z");
+    expect(wait(TUE_10, { notBefore })).toEqual(["2026-10-13T09:20:00Z", "backoff"]);
+    expect(mayDial(ctx({ notBefore }))).toEqual({
+      kind: "not_before",
+      at: notBefore,
+      reason: "backoff",
+    });
+    expect(mayDial(ctx({ now: notBefore, notBefore }))).toEqual({ kind: "ok" });
+    // A scheduled time after closing waits for the next opening instead.
+    expect(wait(TUE_10, { notBefore: at("2026-10-13T16:40:00Z") })).toEqual([
+      "2026-10-14T08:00:00Z",
+      "closed",
+    ]);
+    // The gap wins when it runs later than the scheduled time.
+    const history = [dial("2026-10-13T08:58:00Z", { humanAnswered: true })];
+    expect(wait(TUE_10, { history, notBefore: at("2026-10-13T09:01:00Z") })).toEqual([
+      "2026-10-13T09:03:00Z",
+      "human_answered_recently",
+    ]);
   });
 
   it("says closed when the gap runs past closing time", () => {
@@ -335,6 +378,20 @@ describe("nextRedialAt", () => {
     expect(iso(nextRedialAt({ ...base, now, history: reversed }))).toBe("2026-10-14T08:00:00Z");
   });
 
+  it('falls back to the backoff after "we\'re closed" when the hours never close', () => {
+    const allDay: OpeningPeriod[] = (
+      ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const
+    ).flatMap((day) => [
+      { day, from: "00:00", to: "12:00" },
+      { day, from: "12:00", to: "00:00" },
+    ]);
+    const history = [dial("2026-10-13T12:00:00Z", { heardClosed: true })];
+    const now = at("2026-10-13T12:00:00Z");
+    expect(iso(nextRedialAt({ ...base, openingHours: allDay, holidays: [], now, history }))).toBe(
+      "2026-10-13T12:20:00Z",
+    );
+  });
+
   it("is never before now", () => {
     const history = [dial("2026-10-13T08:00:00Z")];
     expect(iso(nextRedialAt({ ...base, now: at("2026-10-13T10:00:00Z"), history }))).toBe(
@@ -348,7 +405,7 @@ describe("nextRedialAt", () => {
 
   it("keeps the 5-minute gap when a person says they're about to open", () => {
     // Tue 09:58 BST a receptionist answers: "we open at ten, call back then". The next window
-    // (fallback 09:00–17:30) is already open, so the redial waits only for the gap.
+    // (fallback 09:00–17:30) is already open, so the 20-minute backoff decides, not the gap.
     const history = [dial("2026-10-13T08:58:00Z", { humanAnswered: true })];
     expect(iso(nextRedialAt({ ...base, now: at("2026-10-13T08:58:00Z"), history }))).toBe(
       "2026-10-13T09:18:00Z",

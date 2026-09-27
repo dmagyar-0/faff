@@ -9,6 +9,7 @@ import {
   type DialRecord,
   FIRST_REDIAL_MINUTES,
   HUMAN_ANSWERED_GAP_MINUTES,
+  LATER_REDIAL_MINUTES,
   isOpenAt,
   mayDial,
   nextOpenAt,
@@ -78,7 +79,11 @@ const historyArb = (now: Instant): fc.Arbitrary<DialRecord[]> =>
     fc.record({
       // Some within minutes of now, so the 5-minute gap and the 20-minute backoff come up.
       endedAt: fc
-        .oneof(fc.integer({ min: 0, max: 30 }), fc.integer({ min: 0, max: 3 * 24 * 60 }))
+        .oneof(
+          fc.integer({ min: 0, max: HUMAN_ANSWERED_GAP_MINUTES }),
+          fc.integer({ min: 0, max: 30 }),
+          fc.integer({ min: 0, max: 3 * 24 * 60 }),
+        )
         .map((m) => now.subtract({ minutes: m })),
       humanAnswered: fc.boolean(),
       heardClosed: fc.boolean(),
@@ -89,18 +94,26 @@ const historyArb = (now: Instant): fc.Arbitrary<DialRecord[]> =>
 const ctxArb: fc.Arbitrary<DialContext> = instantArb.chain((now) =>
   fc.record({
     limits: limitsArb,
+    // Half of each counter fresh, so the cases that aren't exhausted are common enough to test.
     usage: fc.record({
-      attemptsUsed: fc.integer({ min: 0, max: 21 }),
-      callSecondsUsed: fc.integer({ min: 0, max: 600 * 60 + 100 }),
+      attemptsUsed: fc.oneof(fc.integer({ min: 0, max: 1 }), fc.integer({ min: 0, max: 21 })),
+      callSecondsUsed: fc.oneof(
+        fc.integer({ min: 0, max: 600 }),
+        fc.integer({ min: 0, max: 600 * 60 + 100 }),
+      ),
     }),
     dispatchedAt: fc
-      .integer({ min: 0, max: 31 * 24 * 60 })
+      .oneof(fc.integer({ min: 0, max: 120 }), fc.integer({ min: 0, max: 31 * 24 * 60 }))
       .map((m) => now.subtract({ minutes: m })),
     now: fc.constant(now),
     timezone: fc.constant(TZ),
     openingHours: hoursArb,
     holidays: holidaysArb,
     history: historyArb(now),
+    notBefore: fc.option(
+      fc.integer({ min: -60, max: 180 }).map((m) => now.add({ minutes: m })),
+      { nil: undefined },
+    ),
   }),
 );
 
@@ -121,6 +134,9 @@ describe("limits properties", () => {
         expect(left.callSeconds).toBeGreaterThanOrEqual(CLOSE_LEAD_SECONDS);
         expect(compareInstants(ctx.now, left.lifetimeUntil)).toBeLessThan(0);
         expect(isOpenAt(ctx.now, ctx.openingHours, ctx.timezone, ctx.holidays)).toBe(true);
+        if (ctx.notBefore !== undefined) {
+          expect(compareInstants(ctx.now, ctx.notBefore)).toBeGreaterThanOrEqual(0);
+        }
         const human = latestHumanEnd(ctx.history);
         if (human !== undefined) {
           const gapEnd = human.add({ minutes: HUMAN_ANSWERED_GAP_MINUTES });
@@ -149,12 +165,18 @@ describe("limits properties", () => {
         const plan = planRedial(ctx);
         if (plan.kind !== "redial") return;
         expect(compareInstants(plan.at, ctx.now)).toBeGreaterThanOrEqual(0);
-        expect(mayDial({ ...ctx, now: plan.at })).toEqual({ kind: "ok" });
-        const last = [...ctx.history].sort((a, b) => compareInstants(a.endedAt, b.endedAt)).at(-1);
-        if (last !== undefined) {
-          const floor = last.heardClosed
-            ? last.endedAt.add({ nanoseconds: 1 })
-            : last.endedAt.add({ minutes: FIRST_REDIAL_MINUTES });
+        expect(mayDial({ ...ctx, now: plan.at, notBefore: plan.at })).toEqual({ kind: "ok" });
+        const backoff = ctx.history.length === 1 ? FIRST_REDIAL_MINUTES : LATER_REDIAL_MINUTES;
+        const lastEnd = ctx.history
+          .map((d) => d.endedAt)
+          .sort(compareInstants)
+          .at(-1);
+        for (const d of ctx.history) {
+          if (compareInstants(d.endedAt, lastEnd as Instant) !== 0) continue;
+          // After "we're closed" the redial is in a later window, so after the call at least.
+          const floor = d.heardClosed
+            ? d.endedAt.add({ nanoseconds: 1 })
+            : d.endedAt.add({ minutes: backoff });
           expect(compareInstants(plan.at, floor)).toBeGreaterThanOrEqual(0);
         }
       }),
@@ -179,7 +201,10 @@ describe("limits properties", () => {
             },
           };
           expect(mayDial(worse).kind).toBe("exhausted");
-          expect(planRedial(worse).kind).toBe("exhausted");
+          // planRedial makes its own schedule, so it matches mayDial without a `notBefore`.
+          if (mayDial({ ...ctx, notBefore: undefined }).kind === "exhausted") {
+            expect(planRedial(worse).kind).toBe("exhausted");
+          }
         },
       ),
     );
@@ -270,6 +295,7 @@ describe("limits properties", () => {
       "ok",
       "plan:exhausted",
       "plan:redial",
+      "wait:backoff",
       "wait:closed",
       "wait:human_answered_recently",
     ]);
