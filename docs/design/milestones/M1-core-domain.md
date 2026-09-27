@@ -201,7 +201,7 @@ Six PRs. 1.1 goes first; then 1.2, 1.5 and 1.6 can run in parallel; 1.3 follows 
 |---|---|---|
 | **1.1 Schemas and hashing** | `brief`, the shared types, `outcome` and `observations` schemas, `canonical`, golden vectors, JSON Schema export and its CI drift job | M0 |
 | **1.2 Time and acceptance** | `time`, `acceptance`, `heard-date`, the DST/midnight suite, property tests | 1.1 |
-| **1.3 Limits** | `limits` (budget, redial, opening hours, working days) | 1.2 |
+| **1.3 Limits** | `limits` (budget, redial, opening hours, working days; `addWorkingDays` shipped early in 1.5 as `working-days.ts`) | 1.2 |
 | **1.4 Task machine** | `task-machine`, `escalation`, `disclosure`; table, exhaustiveness and model-based tests | 1.1, 1.3 |
 | **1.5 Knowledge and contacts** | `citation`, `channel`, `profile-derive`, `contact-switch`, `identity-match` | 1.1 (and 1.3 for `contact-switch`'s limit check) |
 | **1.6 Text safety and locale** | `secrets` with both corpora, `locale/en-GB`, `render/`, `CODEOWNERS` entry | 1.1 |

@@ -5,6 +5,7 @@ import { Limits } from "./brief";
 import {
   callBudget,
   CLOSE_LEAD_SECONDS,
+  DEFAULT_OPENING_HOURS,
   type DialContext,
   type DialRecord,
   FIRST_REDIAL_MINUTES,
@@ -247,6 +248,41 @@ describe("limits properties", () => {
     );
   });
 
+  it("isOpenAt agrees with a direct reading of the local clock", () => {
+    // An oracle that shares no code with limits.ts's windows: is `at`'s local weekday and time
+    // inside a period that starts today, or inside yesterday's period that runs past midnight?
+    const oracle = (
+      at: Instant,
+      hours: readonly OpeningPeriod[] | undefined,
+      holidays: readonly string[],
+    ) => {
+      const usable = (hours ?? []).filter((p) => p.from !== p.to);
+      const periods = usable.length > 0 ? usable : DEFAULT_OPENING_HOURS;
+      const local = at.toZonedDateTimeISO(TZ);
+      const open = (day: Temporal.PlainDate, p: OpeningPeriod, sameDay: boolean): boolean => {
+        if (holidays.includes(day.toString()) || WEEKDAYS[day.dayOfWeek - 1] !== p.day)
+          return false;
+        const start = day.toZonedDateTime({ timeZone: TZ, plainTime: p.from }).toInstant();
+        const endDay = p.from > p.to ? day.add({ days: 1 }) : day;
+        const end = endDay.toZonedDateTime({ timeZone: TZ, plainTime: p.to }).toInstant();
+        return (
+          (sameDay || p.from > p.to) &&
+          compareInstants(start, at) <= 0 &&
+          compareInstants(at, end) < 0
+        );
+      };
+      const today = local.toPlainDate();
+      return periods.some(
+        (p) => open(today, p, true) || open(today.subtract({ days: 1 }), p, false),
+      );
+    };
+    fc.assert(
+      fc.property(instantArb, hoursArb, holidaysArb, (at, hours, holidays) => {
+        expect(isOpenAt(at, hours, TZ, holidays)).toBe(oracle(at, hours, holidays));
+      }),
+    );
+  });
+
   it("with the fallback hours and the E&W holidays, something always opens within a week", () => {
     fc.assert(
       fc.property(instantArb, (at) => {
@@ -268,6 +304,7 @@ describe("limits properties", () => {
         expect(b.closeAfterSeconds).toBeGreaterThanOrEqual(0);
         expect(b.hardStopAfterSeconds - b.closeAfterSeconds).toBeLessThanOrEqual(
           CLOSE_LEAD_SECONDS,
+          DEFAULT_OPENING_HOURS,
         );
       }),
     );

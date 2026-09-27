@@ -123,7 +123,7 @@ const wholeSeconds = (n: number): number => (Number.isFinite(n) ? Math.max(0, Ma
 /**
  * What is left of each limit. A lifetime day is 24 hours of elapsed time, so a lifetime that
  * crosses a clock change is neither stretched nor shrunk. The Brief parser has checked
- * `maxLifetime`; an unreadable one counts as no lifetime at all.
+ * `maxLifetime`; an unreadable one counts as a lifetime already over.
  */
 export const remaining = (
   limits: Limits,
@@ -256,6 +256,12 @@ const humanGapUntil = (history: readonly DialRecord[]): Instant | undefined =>
     .map((d) => d.endedAt.add({ minutes: HUMAN_ANSWERED_GAP_MINUTES }))
     .reduce<Instant | undefined>((a, b) => (a === undefined ? b : later(a, b)), undefined);
 
+/** What set the wait: closed hours, else the scheduled backoff, else the human-answered gap. */
+const waitReason = (open: Instant, earliest: Instant, afterGap: Instant): WaitReason => {
+  if (compareInstants(open, earliest) > 0) return "closed";
+  return compareInstants(earliest, afterGap) > 0 ? "backoff" : "human_answered_recently";
+};
+
 /**
  * Whether the worker may dial now (I-8, I-4). Exhausted limits come first, in the order
  * attempts, minutes, lifetime. Otherwise the dial waits for the 5-minute gap after a call a human
@@ -266,12 +272,6 @@ const humanGapUntil = (history: readonly DialRecord[]): Instant | undefined =>
  * Without `notBefore` it doesn't apply the redial backoff: a revision approved after an escalation
  * may dial as soon as the other rules allow.
  */
-/** What set the wait: closed hours, else the scheduled backoff, else the human-answered gap. */
-const waitReason = (open: Instant, earliest: Instant, afterGap: Instant): WaitReason => {
-  if (compareInstants(open, earliest) > 0) return "closed";
-  return compareInstants(earliest, afterGap) > 0 ? "backoff" : "human_answered_recently";
-};
-
 export const mayDial = (ctx: DialContext): DialVerdict => {
   const left = remaining(ctx.limits, ctx.usage, ctx.dispatchedAt, ctx.now);
   const which = exhaustedLimit(left, ctx.now);
@@ -294,9 +294,9 @@ export const mayDial = (ctx: DialContext): DialVerdict => {
 /**
  * When to redial after the latest call (spec 03): 20 minutes after the first attempt ended, 2
  * hours after each later one, or the start of the next opening window if an IVR said the
- * business was closed (the backoff, if the hours never close). Never within 5 minutes of a call a human answered, never before `now`, and
- * always moved into an opening window. `undefined` if nothing opens within
- * `OPENING_SEARCH_DAYS`. Limits aren't checked here; `planRedial` does both.
+ * business was closed (the backoff, if the hours never close). Never within 5 minutes of a call
+ * a human answered, never before `now`, and always moved into an opening window. `undefined` if
+ * nothing opens within `OPENING_SEARCH_DAYS`. Limits aren't checked here; `planRedial` does both.
  */
 export const nextRedialAt = (
   ctx: Omit<DialContext, "limits" | "usage" | "dispatchedAt" | "notBefore">,
