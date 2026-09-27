@@ -4,16 +4,16 @@ Email is both a **parallel channel** (for businesses that prefer it) and a **sup
 
 ## Channel resolution (Q29)
 
-`resolveChannel(business, userMemory, recentObservations) → { chosen, reason }` is a deterministic function in `core`:
+`resolveChannel({ userMemory, observations, knownContacts }, now, timezone, holidays) → { chosen, reason }` is a deterministic function in `core` (`packages/core/src/channel.ts`):
 
-1. The user's own `preferred_contact` for this business decides → `user_memory`.
-2. Otherwise, if the most recent preference-relevant observation (`prefers_email`, or an `email_reply_latency` showing replies within 2 working days) is less than 180 days old and favours email, **and** an email address is known → `prefers_email_observed`.
+1. The user's own `preferred_contact` for this business decides → `user_memory`: phone if they saved a number, otherwise email if they saved only an address.
+2. Otherwise, if the most recent preference-relevant observation (`prefers_email`, or an `email_reply_latency` showing replies within 2 working days) is less than 180 days old and favours email, **and** an email address is known → `prefers_email_observed`. A slower `email_reply_latency` is preference-relevant too: when it is the most recent, it argues against email.
 3. Otherwise, if no phone number is known but an email address is → `no_phone_known`.
 4. Otherwise → phone, `default_phone`.
 
 The chosen channel and its reason appear on the Brief, and the user can override it before approving (`user_override`).
 
-**Email fallback:** if the channel is email and no reply that can be acted on arrives within `emailFallbackToPhoneAfter` (default 2 working days), the task switches to phone. The switch is logged and counts towards the limits. If there's no phone number, the task escalates instead.
+**Email fallback:** if the channel is email and no reply that can be acted on arrives within `emailFallbackToPhoneAfter` (default `{ workingDays: 2 }`, G13), the task switches to phone. **Working days** (M1-Q3) are Monday to Friday, less England & Wales bank holidays, counted at the same wall-clock time (`addWorkingDays`): Friday 16:00 plus two working days is Tuesday 16:00. Scotland and Northern Ireland have different holidays; using the E&W list for everyone is a known, small inaccuracy for v1. The switch is logged and counts towards the limits. If there's no phone number, the task escalates instead.
 
 ## Outbound email
 
